@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Аудиоредактор</title>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#e9e6ff;--ink:#1a1bd6;--pink:#ff4fa3;--dim:#b9b5f2;--card:#fff;--on-pink:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d0e45;--ink:#e9e6ff;--pink:#ff7ab8;--dim:#2f31a0;--card:#17187a;--on-pink:#0d0e45;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0d0e45;--ink:#e9e6ff;--pink:#ff7ab8;--dim:#2f31a0;--card:#17187a;--on-pink:#0d0e45;color-scheme:dark}
+*{box-sizing:inherit}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Onest,system-ui,sans-serif;min-height:100vh;padding:clamp(20px,5vw,56px)}
+main{max-width:1000px;margin:0 auto}
+h1{font-weight:700;font-size:clamp(30px,6vw,64px);line-height:1.05;letter-spacing:-.02em;margin:0 0 14px;padding-right:64px}
+p.lead{max-width:52ch;font-size:18px;line-height:1.5;margin:0 0 32px}
+#stage{position:relative;height:clamp(200px,34vw,300px);background:var(--card);border-radius:36px;touch-action:none;cursor:pointer;overflow:hidden}
+#wave{position:absolute;inset:0;width:100%;height:100%}
+#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;pointer-events:none}
+#empty b{font-weight:700;font-size:clamp(18px,2.6vw,26px);background:var(--bg);padding:6px 18px;border-radius:99px}
+#stage.drag{outline:4px dashed var(--pink);outline-offset:-12px}
+.h{position:absolute;top:0;bottom:0;width:36px;margin-left:-18px;cursor:ew-resize;display:none;justify-content:center}
+.h::before{content:"";width:6px;height:100%;background:var(--pink);border-radius:3px}
+.h i{position:absolute;top:50%;width:22px;height:54px;margin-top:-27px;background:var(--pink);border-radius:12px;transition:transform .15s}
+.h:hover i,.h.on i{transform:scale(1.18)}
+.h em{position:absolute;bottom:10px;font:600 13px Onest,sans-serif;font-style:normal;background:var(--pink);color:var(--on-pink);padding:3px 9px;border-radius:99px;white-space:nowrap}
+.loaded .h{display:flex}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:22px}
+button,.btn{font:600 16px Onest,sans-serif;color:var(--ink);background:transparent;border:2px solid var(--ink);border-radius:99px;padding:12px 22px;cursor:pointer;transition:transform .15s,background .15s,color .15s}
+button:hover:not(:disabled),.btn:hover{transform:translateY(-2px)}
+button:active:not(:disabled){transform:scale(.95)}
+button:disabled{opacity:.35;cursor:default}
+button:focus-visible,.btn:focus-within,.h:focus-visible{outline:3px solid var(--pink);outline-offset:3px}
+#play{width:76px;height:76px;padding:0;background:var(--pink);border-color:var(--pink);color:var(--on-pink);display:grid;place-items:center}
+#play svg{width:30px;height:30px;fill:currentColor}
+#loop[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+#crop{background:var(--ink);color:var(--bg)}
+.btn input{position:absolute;opacity:0;width:1px;height:1px}
+#info{margin-left:auto;font-size:15px;text-align:right;line-height:1.4}
+#info b{font-size:22px}
+#msg{min-height:1.5em;margin-top:14px;font-weight:600;color:var(--pink)}
+.tools{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.tool{display:flex;align-items:center;gap:10px}
+.tool.on,.tool[aria-expanded="true"]{background:var(--ink);color:var(--bg)}
+.tool .ch{display:inline-block;transition:transform .3s}
+.tool[aria-expanded="true"] .ch{transform:rotate(180deg)}
+.drawer{display:grid;grid-template-rows:0fr;opacity:0;transition:grid-template-rows .4s cubic-bezier(.2,.9,.2,1),opacity .3s}
+.drawer.open{grid-template-rows:1fr;opacity:1}
+.drawer>div{overflow:hidden}
+.din{display:flex;flex-wrap:wrap;align-items:center;gap:16px;margin-top:14px;padding:18px 22px;background:var(--card);border-radius:28px}
+.din b{font-size:20px}
+.din small{width:100%;opacity:.75}
+.din button{padding:8px 16px}
+input[type=range]{flex:1 1 220px;-webkit-appearance:none;appearance:none;height:10px;border-radius:99px;background:var(--dim);outline-offset:6px}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:30px;height:30px;border-radius:50%;background:var(--pink);border:4px solid var(--card);box-shadow:0 0 0 2px var(--pink)}
+input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:var(--pink);border:4px solid var(--card)}
+.dl{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:30px;padding-top:20px;border-top:2px dashed var(--dim)}
+.dl span{font-size:15px;opacity:.8}
+#save{display:flex;align-items:center;gap:10px;background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
+#save svg{width:20px;height:20px}
+select{flex:1 1 220px;min-width:0;font:600 16px Onest,sans-serif;color:var(--ink);background:var(--bg);border:2px solid var(--ink);border-radius:99px;padding:10px 16px}
+#rec::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:currentColor;margin-right:10px}
+#rec.live{background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
+#rec.live::before{animation:pulse 1s infinite}
+@keyframes pulse{50%{opacity:.2}}
+.rec .h,.rec #empty{display:none!important}
+#menu{position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);right:16px;z-index:30;width:54px;height:54px;padding:0;border-radius:50%;background:var(--card);display:grid;place-items:center}
+#menu i{position:absolute;width:22px;height:3px;border-radius:2px;background:currentColor;transition:transform .35s cubic-bezier(.2,.9,.2,1),opacity .2s}
+#menu i:nth-child(1){transform:translateY(-7px)}
+#menu i:nth-child(3){transform:translateY(7px)}
+#menu[aria-expanded="true"] i:nth-child(1){transform:rotate(45deg)}
+#menu[aria-expanded="true"] i:nth-child(2){opacity:0}
+#menu[aria-expanded="true"] i:nth-child(3){transform:rotate(-45deg)}
+#scrim{position:fixed;inset:0;z-index:20;background:#0d0e45;opacity:0;pointer-events:none;transition:opacity .35s}
+#side{position:fixed;top:0;right:0;bottom:0;z-index:25;width:min(340px,86vw);padding:calc(env(safe-area-inset-top,0px) + 88px) 22px 24px;background:var(--card);border-radius:36px 0 0 36px;overflow:auto;transform:translateX(105%);visibility:hidden;transition:transform .45s cubic-bezier(.2,.9,.2,1),visibility 0s .45s}
+body.side #side{transform:none;visibility:visible;transition:transform .45s cubic-bezier(.2,.9,.2,1),visibility 0s}
+body.side #scrim{opacity:.45;pointer-events:auto}
+#side h2{margin:0 0 14px;font-size:20px}
+.nav{display:block;width:100%;text-align:left;border-radius:24px;padding:16px 18px}
+.nav.on{background:var(--ink);color:var(--bg)}
+.nav b{display:block;font-size:18px}
+.nav span{font-size:14px;opacity:.8}
+@media (max-width:600px){#info{margin-left:0;text-align:left;width:100%}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<main>
+<section data-view="audio">
+<h1>Аудиоредактор</h1>
+<p class="lead">Загрузите запись, потяните розовые ручки и оставьте только нужный кусок. Остальные инструменты появятся в меню справа.</p>
+
+<div id="stage" role="application" aria-label="Звуковая дорожка">
+  <canvas id="wave"></canvas>
+  <div id="empty"><b>Бросьте сюда аудиофайл</b><span>или нажмите «Выбрать файл» ниже</span></div>
+  <div class="h" id="hs" tabindex="0" role="slider" aria-label="Начало"><i></i><em></em></div>
+  <div class="h" id="he" tabindex="0" role="slider" aria-label="Конец"><i></i><em></em></div>
+</div>
+
+<div class="bar">
+  <button id="play" disabled aria-label="Слушать"><svg viewBox="0 0 24 24" id="ic"><path d="M7 4l13 8-13 8z"/></svg></button>
+  <button id="loop" aria-pressed="false" disabled>Повтор</button>
+  <button id="crop" disabled>Обрезать</button>
+  <button id="undo" disabled>Отменить</button>
+  <label class="btn" style="position:relative">Выбрать файл<input type="file" id="file" accept="audio/*"></label>
+  <div id="info"><b id="sel">0:00.00</b><br><span id="name">Файл не выбран</span></div>
+</div>
+<div id="msg" role="status"></div>
+<div class="tools" id="tools"></div>
+<div id="drawers"></div>
+<div class="dl">
+  <span id="outinfo"></span>
+  <button id="save" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Скачать</button>
+</div>
+</section>
+</main>
+<button id="menu" aria-label="Открыть меню" aria-expanded="false" aria-controls="side"><i></i><i></i><i></i></button>
+<div id="scrim"></div>
+<aside id="side" aria-label="Разделы сайта"><h2>Инструменты</h2>
+  <button class="nav on" data-go="audio"><b>Аудиоредактор</b><span>Обрезка, скорость, высота, громкость</span></button>
+</aside>
+
+<script>
+const $=s=>document.querySelector(s);
+const cv=$('#wave'),c=cv.getContext('2d'),stage=$('#stage'),hs=$('#hs'),he=$('#he');
+const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+const PLAY='M7 4l13 8-13 8z',PAUSE='M6 4h4v16H6zM14 4h4v16h-4z';
+let actx,buf,peaks=[],S=0,E=0,pos=0,playing=false,loop=false,src,t0=0,base=0,hist=[],W=0,H=0,born=0,drag=null,name='',gain,cache=null,bid=0,rate=1,busy=false,mrec=null,lv=[],fc=0;
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt=t=>{t=Math.max(0,t);const m=Math.floor(t/60),s=t-m*60;return m+':'+s.toFixed(2).padStart(5,'0')};
+const msg=t=>$('#msg').textContent=t||'';
+const iw=()=>Math.max(11,Math.floor((W-72)/11)*11),pad=()=>(W-iw())/2;
+
+function resize(){
+  const d=devicePixelRatio||1;W=stage.clientWidth;H=stage.clientHeight;
+  cv.width=W*d;cv.height=H*d;c.setTransform(d,0,0,d,0,0);calc();
+}
+function calc(){
+  const n=iw()/11;peaks=[];if(!buf)return;
+  const a=buf.getChannelData(0),blk=Math.max(1,Math.floor(a.length/n)),step=Math.max(1,Math.floor(blk/40));let mx=0;
+  for(let i=0;i<n;i++){let m=0;for(let j=i*blk;j<(i+1)*blk&&j<a.length;j+=step){const v=Math.abs(a[j]);if(v>m)m=v}peaks.push(m);if(m>mx)mx=m}
+  peaks=peaks.map(v=>v/(mx||1));
+}
+function curPos(){
+  if(!playing)return pos;
+  const x=base+rate*Math.max(0,actx.currentTime-(actx.outputLatency||actx.baseLatency||0)-t0);
+  return(loop&&x>=E)?S+((x-S)%Math.max(.05,E-S)):Math.min(x,E);
+}
+function frame(now){
+  const p=curPos();if(playing)pos=p;
+  if(mrec&&++fc%3===0){mrec.an.getFloatTimeDomainData(mrec.ab);let q=0;for(const v of mrec.ab)q+=v*v;lv.push(Math.min(1,Math.sqrt(q/mrec.ab.length)*4));if(lv.length>300)lv.shift()}
+  const n=iw()/11,dur=buf?buf.duration:1;
+  c.clearRect(0,0,W,H);c.lineCap='round';c.lineWidth=7;
+  const px=buf?pad()+p/dur*iw():-999,g=Math.min(1,(now-born)/900);
+  for(let i=0;i<n;i++){
+    const x=pad()+i*11+5.5,t=(x-pad())/iw()*dur;let h;
+    if(mrec){h=Math.max(.05,lv[lv.length-n+i]||0)*H*.46;c.strokeStyle=css('--pink')}else if(buf){
+      const e=reduce?1:Math.min(1,Math.max(0,g*1.6-i/n*.6));
+      h=(.06+(peaks[i]||0)*.86)*H*.5*(1-Math.pow(1-e,3));
+      if(playing&&!reduce){const d=(x-px)/11;h*=1+.8*Math.exp(-d*d*1.6)}
+      c.strokeStyle=(t>=S&&t<=E)?css('--pink'):css('--dim');if(playing&&Math.abs(x-px)<5.5)c.strokeStyle=css('--ink');
+    }else{
+      h=(.2+.14*Math.sin(i*.37+(reduce?0:now/500))+.1*Math.sin(i*.11-(reduce?0:now/900)))*H*.5;
+      c.strokeStyle=css('--dim');
+    }
+    h=Math.min(h,H/2-10);c.beginPath();c.moveTo(x,H/2-h);c.lineTo(x,H/2+h);c.stroke();
+  }
+  if(buf&&!mrec){
+    c.fillStyle=css('--ink');c.fillRect(px-1.5,0,3,H);
+    hs.style.left=pad()+S/dur*iw()+'px';he.style.left=pad()+E/dur*iw()+'px';
+    hs.firstChild.nextSibling.textContent=fmt(S);he.firstChild.nextSibling.textContent=fmt(E);
+  }
+  requestAnimationFrame(frame);
+}
+function stretch(a,z,r){
+  const N=2048,Ho=512,out=Math.ceil((z-a)*r);if(out>3e7)return null;
+  const nb=actx.createBuffer(buf.numberOfChannels,out,buf.sampleRate),w=new Float32Array(N);
+  for(let j=0;j<N;j++)w[j]=.25-.25*Math.cos(2*Math.PI*j/N);
+  for(let ch=0;ch<nb.numberOfChannels;ch++){
+    const x=buf.getChannelData(ch),y=nb.getChannelData(ch);
+    for(let o=0;o<out;o+=Ho){const i=a+Math.floor(o/r),m=Math.min(N,out-o,z-i);for(let j=0;j<m;j++)y[o+j]+=x[i+j]*w[j]}
+  }
+  return nb;
+}
+function setIc(p){$('#ic').innerHTML='<path d="'+(p?PAUSE:PLAY)+'"/>';$('#play').setAttribute('aria-label',p?'Пауза':'Слушать')}
+function ui(){
+  const on=!!buf;['play','loop','crop','save'].forEach(i=>$('#'+i).disabled=!on);
+  $('#undo').disabled=!hist.length;$('#empty').style.display=on?'none':'flex';stage.classList.toggle('loaded',on);
+  $('#sel').textContent=on?fmt(E-S)+' выбрано':'0:00.00';
+  $('#outinfo').textContent=on?'Скачается выделенный кусок, '+fmt((E-S)/fac('speed')):'Скачивать пока нечего: загрузите или запишите звук.';$('#name').textContent=on?name+' · всего '+fmt(buf.duration):'Файл не выбран';
+}
+async function play(){
+  if(!buf||busy)return;actx.resume();stop(false);
+  if(pos<S||pos>=E-.02)pos=S;
+  const sp=fac('speed'),pt=fac('pitch'),proc=Math.abs(sp-1)>.001||Math.abs(pt-1)>.001;
+  let b=buf,o=pos,r=1,lo=S,hi=E;
+  if(proc){
+    const ratio=pt/sp,key=[bid,S,E,sp,pt].join('|');
+    if(!cache||cache.key!==key){
+      busy=true;msg('Обрабатываю звук…');await new Promise(q=>setTimeout(q,30));
+      const nb=stretch(Math.floor(S*buf.sampleRate),Math.min(buf.length,Math.ceil(E*buf.sampleRate)),ratio);busy=false;
+      if(!nb){msg('Результат получится длиннее 11 минут, браузеру не хватит памяти. Выделите кусок короче или уменьшите замедление.');return}
+      cache={key,nb,ratio};msg('');
+    }
+    b=cache.nb;o=(pos-S)*cache.ratio;r=sp;lo=0;hi=b.duration;
+  }
+  const me=actx.createBufferSource();me.buffer=b;me.connect(gain);if(proc)me.playbackRate.value=pt;
+  if(loop){me.loop=true;me.loopStart=lo;me.loopEnd=hi;me.start(0,o)}else if(proc)me.start(0,o);else me.start(0,o,E-pos);
+  me.onended=()=>{if(src===me&&!loop){playing=false;pos=S;setIc(false)}};
+  src=me;t0=actx.currentTime;base=pos;rate=r;playing=true;setIc(true);
+}
+function stop(keep=true){
+  if(playing&&keep)pos=curPos();
+  if(src){src.onended=null;try{src.stop()}catch(e){}src=null}
+  playing=false;setIc(false);
+}
+async function load(f){
+  if(!f)return;msg('');
+  try{
+    if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();gain=actx.createGain();gain.connect(actx.destination);setVol()}stop();
+    buf=await actx.decodeAudioData(await f.arrayBuffer());
+    name=f.name;hist=[];bid++;S=0;E=buf.duration;pos=0;born=performance.now();calc();ui();
+  }catch(e){msg('Не удалось открыть файл. Попробуйте mp3, wav, ogg или m4a.')}
+}
+function timeAt(e){const r=stage.getBoundingClientRect();return Math.min(1,Math.max(0,(e.clientX-r.left-pad())/iw()))*buf.duration}
+[hs,he].forEach(h=>{
+  h.addEventListener('pointerdown',e=>{e.stopPropagation();drag=h;h.classList.add('on');h.setPointerCapture(e.pointerId);if(playing)stop()});
+  h.addEventListener('pointermove',e=>{
+    if(drag!==h)return;const t=timeAt(e);
+    if(h===hs)S=Math.min(t,E-.05);else E=Math.max(t,S+.05);
+    pos=Math.min(E,Math.max(S,pos));ui();
+  });
+  const up=()=>{drag=null;h.classList.remove('on')};h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);
+  h.addEventListener('keydown',e=>{
+    const d=(e.key==='ArrowLeft'?-1:e.key==='ArrowRight'?1:0)*(e.shiftKey?1:.1);if(!d||!buf)return;e.preventDefault();
+    if(h===hs)S=Math.max(0,Math.min(S+d,E-.05));else E=Math.min(buf.duration,Math.max(E+d,S+.05));ui();
+  });
+});
+stage.addEventListener('pointerdown',e=>{
+  if(!buf)return;pos=Math.min(E,Math.max(S,timeAt(e)));if(playing)play();
+});
+$('#play').onclick=()=>playing?stop():play();
+$('#loop').onclick=e=>{loop=!loop;e.currentTarget.setAttribute('aria-pressed',loop);if(playing){pos=curPos();play()}};
+$('#crop').onclick=()=>{
+  stop();const sr=buf.sampleRate,a=Math.floor(S*sr),b=Math.ceil(E*sr),nb=actx.createBuffer(buf.numberOfChannels,b-a,sr);
+  for(let ch=0;ch<buf.numberOfChannels;ch++)nb.copyToChannel(buf.getChannelData(ch).subarray(a,b),ch);
+  hist.push({buf,S,E});bid++;buf=nb;S=0;E=nb.duration;pos=0;born=performance.now();calc();ui();msg('Обрезано. Если ошиблись, нажмите «Отменить».');
+};
+$('#undo').onclick=()=>{const h=hist.pop();if(!h)return;stop();bid++;buf=h.buf;S=h.S;E=h.E;pos=S;born=performance.now();calc();ui();msg('')};
+$('#file').onchange=e=>load(e.target.files[0]);
+['dragenter','dragover'].forEach(v=>stage.addEventListener(v,e=>{e.preventDefault();stage.classList.add('drag')}));
+['dragleave','drop'].forEach(v=>stage.addEventListener(v,e=>{e.preventDefault();stage.classList.remove('drag')}));
+stage.addEventListener('drop',e=>load(e.dataTransfer.files[0]));
+addEventListener('keydown',e=>{if(e.code==='Space'&&buf&&!/BUTTON|INPUT/.test(document.activeElement.tagName)&&document.activeElement.getAttribute('role')!=='slider'){e.preventDefault();playing?stop():play()}});
+const B={speed:50,pitch:50,vol:10},V={speed:0,pitch:0,vol:0},NM={speed:'Скорость',pitch:'Высота',vol:'Громкость'};
+const HINT={speed:'Темп меняется, высота звука остаётся прежней. От ×0.02 до ×50.',pitch:'Высота меняется, длительность остаётся прежней. От ×0.02 до ×50.',vol:'От ×0.1 до ×10. Сильное усиление может искажать звук.'};
+const fac=k=>Math.pow(B[k],V[k]),setVol=()=>{if(gain)gain.gain.value=fac('vol')};
+const lab=k=>{const f=fac(k);let s='×'+(f>=10?f.toFixed(1):f.toFixed(2));if(k==='pitch'){const t=12*Math.log2(f);s+=' ('+(t>=0?'+':'')+t.toFixed(1)+' полутонов)'}return s};
+Object.keys(NM).forEach(k=>{
+  $('#tools').insertAdjacentHTML('beforeend',`<button class="tool" id="t-${k}" aria-expanded="false" aria-controls="d-${k}"><span>${NM[k]}</span><span class="ch">▾</span></button>`);
+  $('#drawers').insertAdjacentHTML('beforeend',`<div class="drawer" id="d-${k}"><div><div class="din"><input type="range" id="r-${k}" min="-1" max="1" step=".001" value="0" aria-label="${NM[k]}"><b id="v-${k}">×1.00</b><button>Сбросить</button><small>${HINT[k]}</small></div></div></div>`);
+  const r=$('#r-'+k),t=$('#t-'+k),d=$('#d-'+k);let tm;
+  t.onclick=()=>t.setAttribute('aria-expanded',d.classList.toggle('open'));
+  r.oninput=()=>{
+    if(Math.abs(r.value)<.015)r.value=0;V[k]=+r.value;$('#v-'+k).textContent=lab(k);
+    t.firstElementChild.textContent=NM[k]+(V[k]?' '+lab(k).split(' ')[0]:'');t.classList.toggle('on',V[k]!==0);ui();
+    if(k==='vol')setVol();else{clearTimeout(tm);tm=setTimeout(()=>{if(playing){pos=curPos();play()}},250)}
+  };
+  d.querySelector('button').onclick=()=>{r.value=0;r.oninput()};
+});
+const CT=(()=>{const t=new Uint32Array(256);for(let i=0;i<256;i++){let c=i;for(let k=0;k<8;k++)c=c&1?0xedb88320^(c>>>1):c>>>1;t[i]=c>>>0}return t})();
+function crc32(u){let c=~0;for(let i=0;i<u.length;i++)c=CT[(c^u[i])&255]^(c>>>8);return ~c>>>0}
+function zipOne(fn,d){
+  const nm=new TextEncoder().encode(fn),n=d.length,crc=crc32(d),L=new DataView(new ArrayBuffer(30)),C=new DataView(new ArrayBuffer(46)),Z=new DataView(new ArrayBuffer(22));
+  L.setUint32(0,0x04034b50,true);L.setUint16(4,20,true);L.setUint16(6,0x800,true);L.setUint16(12,0x21,true);L.setUint32(14,crc,true);L.setUint32(18,n,true);L.setUint32(22,n,true);L.setUint16(26,nm.length,true);
+  C.setUint32(0,0x02014b50,true);C.setUint16(4,20,true);C.setUint16(6,20,true);C.setUint16(8,0x800,true);C.setUint16(14,0x21,true);C.setUint32(16,crc,true);C.setUint32(20,n,true);C.setUint32(24,n,true);C.setUint16(28,nm.length,true);
+  Z.setUint32(0,0x06054b50,true);Z.setUint16(8,1,true);Z.setUint16(10,1,true);Z.setUint32(12,46+nm.length,true);Z.setUint32(16,30+nm.length+n,true);
+  return new Blob([L.buffer,nm,d,C.buffer,nm,Z.buffer]);
+}
+function wavOf(chs,sr){
+  const nc=chs.length,len=chs[0].length,ab=new ArrayBuffer(44+len*nc*2),v=new DataView(ab),w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+  w(0,'RIFF');v.setUint32(4,36+len*nc*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,nc,true);v.setUint32(24,sr,true);v.setUint32(28,sr*nc*2,true);v.setUint16(32,nc*2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,len*nc*2,true);
+  let o=44;for(let i=0;i<len;i++)for(let c=0;c<nc;c++){const s=Math.max(-1,Math.min(1,chs[c][i]));v.setInt16(o,s<0?s*32768:s*32767,true);o+=2}
+  return new Uint8Array(ab);
+}
+function ensure(sp,pt){
+  const key=[bid,S,E,sp,pt].join('|');
+  if(!cache||cache.key!==key){const nb=stretch(Math.floor(S*buf.sampleRate),Math.min(buf.length,Math.ceil(E*buf.sampleRate)),pt/sp);if(!nb)return null;cache={key,nb,ratio:pt/sp}}
+  return cache;
+}
+$('#save').onclick=async()=>{
+  if(!buf||busy)return;busy=true;stop();msg('Готовлю файл…');await new Promise(q=>setTimeout(q,30));
+  try{
+    const sr=buf.sampleRate,a=Math.floor(S*sr),z=Math.min(buf.length,Math.ceil(E*sr)),sp=fac('speed'),pt=fac('pitch'),vol=fac('vol'),proc=Math.abs(sp-1)>.001||Math.abs(pt-1)>.001;
+    let chs=[],R=1;
+    for(let c=0;c<buf.numberOfChannels;c++)chs.push(buf.getChannelData(c).subarray(a,z));
+    if(proc){const e=ensure(sp,pt);if(!e){msg('Результат получится длиннее 11 минут, браузеру не хватит памяти. Выделите кусок короче или уменьшите замедление.');return}chs=[];for(let c=0;c<e.nb.numberOfChannels;c++)chs.push(e.nb.getChannelData(c));R=pt}
+    const len=Math.max(1,Math.floor(chs[0].length/R)),out=chs.map(s=>{const y=new Float32Array(len);for(let i=0;i<len;i++){const p=i*R,j=p|0,f=p-j;y[i]=(s[j]*(1-f)+(j+1<s.length?s[j+1]:s[j])*f)*vol}return y});
+    const wav=wavOf(out,sr),fn=(name.replace(/\.[^.]+$/,'')||'audio')+'-edit.wav';
+    const dl=window.claude?await claude.use('downloads').catch(()=>null):null;
+    if(dl){await dl.save({filename:fn.replace(/\.wav$/,'.zip'),data:zipOne(fn,wav)});msg('Готово. Внутри скачанного .zip лежит файл .wav.')}
+    else{const u=URL.createObjectURL(new Blob([wav],{type:'audio/wav'})),l=document.createElement('a');l.href=u;l.download=fn;l.click();setTimeout(()=>URL.revokeObjectURL(u),4000);msg('Файл сохранён: '+fn)}
+  }catch(e){msg(e&&e.code==='declined'?'':'Не удалось сохранить файл.')}finally{busy=false}
+};
+let micAsked=false;
+function initAudio(){if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();gain=actx.createGain();gain.connect(actx.destination);setVol()}}
+const micErr=e=>!navigator.mediaDevices?'Запись недоступна: нужен адрес https (например, GitHub Pages) или локальный файл.':e&&e.name==='NotFoundError'?'Микрофон не найден.':e&&e.name==='NotAllowedError'?'Доступ к микрофону запрещён. Разрешите его в браузере для этого сайта. Во встроенном окне предпросмотра запись может быть заблокирована.':'Не удалось включить микрофон.';
+async function listMics(ask){
+  const sel=$('#mic');
+  try{
+    if(!navigator.mediaDevices)throw 0;
+    if(ask){const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}
+    const d=(await navigator.mediaDevices.enumerateDevices()).filter(x=>x.kind==='audioinput'),cur=sel.value;
+    sel.replaceChildren(...d.map((x,i)=>new Option(x.label||'Микрофон '+(i+1),x.deviceId)));
+    if(cur)sel.value=cur;
+    $('#mnote').textContent=d.length?'Выберите микрофон и нажмите «Записать». Новая запись заменит текущий звук, вернуть его можно кнопкой «Отменить».':'Микрофон не найден.';
+  }catch(e){micAsked=false;$('#mnote').textContent=micErr(e)}
+}
+async function recToggle(){
+  if(mrec){mrec.mr.stop();return}
+  try{
+    const id=$('#mic').value,stream=await navigator.mediaDevices.getUserMedia({audio:id?{deviceId:{exact:id}}:true});
+    initAudio();actx.resume();stop();
+    const src=actx.createMediaStreamSource(stream),an=actx.createAnalyser(),mr=new MediaRecorder(stream),chunks=[];
+    an.fftSize=1024;src.connect(an);
+    const t0=performance.now(),iv=setInterval(()=>{$('#rt').textContent=fmt((performance.now()-t0)/1000)},100);
+    mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    mr.onstop=async()=>{
+      clearInterval(iv);stream.getTracks().forEach(t=>t.stop());src.disconnect();
+      mrec=null;stage.classList.remove('rec');$('#rec').classList.remove('live');$('#rec').textContent='Записать';
+      try{
+        const nb=await actx.decodeAudioData(await new Blob(chunks).arrayBuffer());
+        if(buf)hist.push({buf,S,E});
+        bid++;buf=nb;name='Запись';S=0;E=nb.duration;pos=0;born=performance.now();calc();ui();msg('Запись готова: обрежьте, поменяйте и скачайте.');
+      }catch(e){msg('Не удалось обработать запись.')}
+    };
+    mrec={mr,an,ab:new Float32Array(an.fftSize)};lv=[];msg('');
+    mr.start();stage.classList.add('rec');$('#rec').classList.add('live');$('#rec').textContent='Остановить';
+  }catch(e){$('#mnote').textContent=micErr(e)}
+}
+$('#tools').insertAdjacentHTML('beforeend','<button class="tool" id="t-mic" aria-expanded="false" aria-controls="d-mic"><span>Микрофон</span><span class="ch">▾</span></button>');
+$('#drawers').insertAdjacentHTML('beforeend','<div class="drawer" id="d-mic"><div><div class="din"><select id="mic" aria-label="Микрофон"></select><button id="rec">Записать</button><b id="rt">0:00.00</b><small id="mnote">Нужен доступ к микрофону: браузер спросит разрешение.</small></div></div></div>');
+$('#t-mic').onclick=function(){const o=$('#d-mic').classList.toggle('open');this.setAttribute('aria-expanded',o);if(o&&!micAsked){micAsked=true;listMics(true)}};
+$('#rec').onclick=recToggle;
+const sideTo=o=>{document.body.classList.toggle('side',o);const m=$('#menu');m.setAttribute('aria-expanded',o);m.setAttribute('aria-label',o?'Закрыть меню':'Открыть меню')};
+$('#menu').onclick=()=>sideTo(!document.body.classList.contains('side'));
+$('#scrim').onclick=()=>sideTo(false);
+addEventListener('keydown',e=>{if(e.key==='Escape')sideTo(false)});
+document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
+  document.querySelectorAll('[data-view]').forEach(v=>v.hidden=v.dataset.view!==n.dataset.go);
+  document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x===n));sideTo(false);
+});
+addEventListener('resize',resize);resize();ui();requestAnimationFrame(frame);
+</script>
+</body>
+</html>
