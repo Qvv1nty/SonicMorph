@@ -62,8 +62,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .fn input:focus-visible{outline:3px solid var(--pink);outline-offset:3px}
 .fn input:disabled{opacity:.35}
 .fn b{font-size:16px}
-#save{display:flex;align-items:center;gap:10px;background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
-#save svg{width:20px;height:20px}
+#save,#rsave{display:flex;align-items:center;gap:10px;background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
+#save svg,#rsave svg{width:20px;height:20px}
 select{flex:1 1 220px;min-width:0;font:600 16px Onest,sans-serif;color:var(--ink);background:var(--bg);border:2px solid var(--ink);border-radius:99px;padding:10px 16px}
 @keyframes pulse{50%{opacity:.2}}
 .rec .h,.rec #rempty{display:none!important}
@@ -95,6 +95,9 @@ body.side #scrim{opacity:.45;pointer-events:auto}
 .row b{min-width:70px;text-align:right;font-size:16px}
 .chk{display:flex;align-items:center;gap:10px;width:100%;font-weight:600}
 input[type=checkbox]{accent-color:var(--pink);width:22px;height:22px;flex:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+.chip{padding:8px 16px;font-size:15px}
+.chip.on{background:var(--ink);color:var(--bg)}
 @media (max-width:600px){#info,#rinfo{margin-left:0;text-align:left;width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -214,11 +217,11 @@ function frame(now){
   }
   requestAnimationFrame(frame);
 }
-function stretch(a,z,r){
+function stretch(a,z,r,B=buf){
   const N=2048,Ho=512,D=512,out=Math.ceil((z-a)*r);if(out>3e7)return null;
-  const nb=actx.createBuffer(buf.numberOfChannels,out,buf.sampleRate),w=new Float32Array(N);
+  const nb=actx.createBuffer(B.numberOfChannels,out,B.sampleRate),w=new Float32Array(N);
   for(let j=0;j<N;j++)w[j]=.25-.25*Math.cos(2*Math.PI*j/N);
-  const nc=nb.numberOfChannels,X=[],Y=[];for(let c=0;c<nc;c++){X.push(buf.getChannelData(c));Y.push(nb.getChannelData(c))}
+  const nc=nb.numberOfChannels,X=[],Y=[];for(let c=0;c<nc;c++){X.push(B.getChannelData(c));Y.push(nb.getChannelData(c))}
   const x0=X[0];let prev=-1;
   for(let o=0;o<out;o+=Ho){
     let i=a+Math.round(o/r);
@@ -392,10 +395,37 @@ function gateBuf(b,st){
   }
   return out;
 }
+let rpt=1,rosc=[],rvg=null;
+const FX={type:'none',lvl:.6},EQ={vol:0,bass:0,treb:0,hp:false};
+const pitchOf=()=>FX.type==='tiny'?1.2+.9*FX.lvl:FX.type==='giant'?.85-.4*FX.lvl:1;
+const fxStop=()=>{rosc.forEach(o=>{try{o.stop()}catch(e){}});rosc=[]};
+function fxApply(x,n,live){
+  const t=FX.type,l=FX.lvl,sum=x.createGain();
+  if(t==='echo'){const dl=x.createDelay(1),fb=x.createGain(),wet=x.createGain();dl.delayTime.value=.3;fb.gain.value=.2+.5*l;wet.gain.value=.7;n.connect(sum);n.connect(dl);dl.connect(wet);wet.connect(sum);dl.connect(fb);fb.connect(dl);return sum}
+  if(t==='robot'){const m=x.createGain(),o=x.createOscillator();m.gain.value=0;o.frequency.value=40+110*l;o.connect(m.gain);o.start();if(live)rosc.push(o);n.connect(m);return m}
+  if(t==='radio'){const hp=x.createBiquadFilter(),lp=x.createBiquadFilter(),sh=x.createWaveShaper(),k=2+8*l,cv=new Float32Array(256);for(let i=0;i<256;i++)cv[i]=Math.tanh(k*(i/127.5-1))/Math.tanh(k);hp.type='highpass';hp.frequency.value=450;lp.type='lowpass';lp.frequency.value=2800;sh.curve=cv;n.connect(hp);hp.connect(lp);lp.connect(sh);return sh}
+  if(t==='hall'){const cv=x.createConvolver(),sr=x.sampleRate,len=Math.floor(sr*(1+2.5*l)),ib=x.createBuffer(2,len,sr),wet=x.createGain(),dry=x.createGain();for(let c=0;c<2;c++){const d=ib.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.5)}cv.buffer=ib;wet.gain.value=.55;dry.gain.value=.8;n.connect(dry);dry.connect(sum);n.connect(cv);cv.connect(wet);wet.connect(sum);return sum}
+  return n;
+}
+function fxGraph(x,src,dst,live){
+  let n=src;const add=f=>{n.connect(f);n=f;return f};
+  const vg=x.createGain();vg.gain.value=Math.pow(10,EQ.vol/20);add(vg);
+  if(EQ.hp){const f=x.createBiquadFilter();f.type='highpass';f.frequency.value=90;add(f)}
+  if(EQ.bass){const f=x.createBiquadFilter();f.type='lowshelf';f.frequency.value=200;f.gain.value=EQ.bass;add(f)}
+  if(EQ.treb){const f=x.createBiquadFilter();f.type='highshelf';f.frequency.value=4000;f.gain.value=EQ.treb;add(f)}
+  if(live)rcomp=rmk=null;
+  if(CP.on){const c=x.createDynamicsCompressor();cpSet(c);const m=x.createGain();m.gain.value=Math.pow(10,CP.mk/20);add(c);add(m);if(live){rcomp=c;rmk=m}}
+  fxApply(x,n,live).connect(dst);
+  return vg;
+}
 function rBuild(){
   if(!rb)return null;
-  const key=rid+'|'+NS.lvl;
-  if(rkey!==key){rg=gateBuf(rb,NS.lvl);rkey=key}
+  const pt=pitchOf(),key=rid+'|'+NS.lvl+'|'+pt;
+  if(rkey!==key){
+    let g=gateBuf(rb,NS.lvl),k=1;
+    if(Math.abs(pt-1)>.001){const q=stretch(0,g.length,pt,g);if(q){g=q;k=pt}else rmsg('Запись слишком длинная для этого эффекта, высота не изменена.')}
+    rg=g;rpt=k;rkey=key;
+  }
   return rg;
 }
 function rCalc(){
@@ -408,21 +438,21 @@ function rUi(){
   const on=!!rb;['rplay','rcrop','rsave','rfname'].forEach(i=>{$('#'+i).disabled=!on});
   $('#rundo').disabled=!rhist.length;$('#rempty').style.display=on?'none':'flex';rst.classList.toggle('loaded',on);
   $('#rinfot').textContent=on?fmt(rE-rS)+' выбрано, всего '+fmt(rb.duration):'Записи пока нет';
-  $('#routinfo').textContent=on?'Скачается выбранный кусок с шумоподавлением и компрессором':'Скачивать пока нечего: сделайте запись.';
+  $('#routinfo').textContent=on?'Скачается выбранный кусок с вашими настройками и эффектом':'Скачивать пока нечего: сделайте запись.';
 }
 function rPlay(){
   if(!rb)return;actx.resume();stop();rStop(false);
   if(rpos<rS||rpos>=rE-.02)rpos=rS;
-  const s=actx.createBufferSource();s.buffer=rBuild();rcomp=rmk=null;
-  if(CP.on){const c=actx.createDynamicsCompressor();cpSet(c);const m=actx.createGain();m.gain.value=Math.pow(10,CP.mk/20);s.connect(c);c.connect(m);m.connect(actx.destination);rcomp=c;rmk=m}else s.connect(actx.destination);
-  s.start(0,rpos,rE-rpos);
-  s.onended=()=>{if(rsrc===s){rplay=false;rpos=rS;$('#rplay').textContent='Слушать'}};
+  const g=rBuild(),k=rpt,s=actx.createBufferSource();s.buffer=g;s.playbackRate.value=k;
+  rvg=fxGraph(actx,s,actx.destination,true);
+  s.start(0,rpos*k,(rE-rpos)*k);
+  s.onended=()=>{if(rsrc===s){rplay=false;rpos=rS;$('#rplay').textContent='Слушать';fxStop()}};
   rsrc=s;rt0=actx.currentTime;rbase=rpos;rplay=true;$('#rplay').textContent='Пауза';
 }
 function rStop(keep=true){
   if(rplay&&keep)rpos=rCur();
   if(rsrc){rsrc.onended=null;try{rsrc.stop()}catch(e){}rsrc=null}
-  rplay=false;$('#rplay').textContent='Слушать';
+  rplay=false;fxStop();$('#rplay').textContent='Слушать';
 }
 async function rMics(ask){
   const sel=$('#rmic');
@@ -468,11 +498,11 @@ async function deliver(out,sr,nm,say){
 async function rSave(){
   if(!rb||rbusy)return;rbusy=true;rStop();rmsg('Готовлю файл…');await new Promise(q=>setTimeout(q,30));
   try{
-    const g=rBuild(),sr=g.sampleRate,a=Math.floor(rS*sr),z=Math.min(g.length,Math.ceil(rE*sr)),nc=g.numberOfChannels,len=z-a;
-    const oc=new OfflineAudioContext(nc,len,sr),sb=oc.createBuffer(nc,len,sr);
+    const g=rBuild(),k=rpt,sr=g.sampleRate,nc=g.numberOfChannels,a=Math.floor(rS*sr*k),z=Math.min(g.length,Math.ceil(rE*sr*k));
+    const tail=FX.type==='echo'?Math.ceil(sr*3):FX.type==='hall'?Math.ceil(sr*(1+2.5*FX.lvl)):0;
+    const oc=new OfflineAudioContext(nc,Math.ceil((z-a)/k)+tail,sr),sb=oc.createBuffer(nc,z-a,sr);
     for(let c=0;c<nc;c++)sb.copyToChannel(g.getChannelData(c).subarray(a,z),c);
-    const s=oc.createBufferSource();s.buffer=sb;
-    if(CP.on){const c=oc.createDynamicsCompressor();cpSet(c);const m=oc.createGain();m.gain.value=Math.pow(10,CP.mk/20);s.connect(c);c.connect(m);m.connect(oc.destination)}else s.connect(oc.destination);
+    const s=oc.createBufferSource();s.buffer=sb;s.playbackRate.value=k;fxGraph(oc,s,oc.destination,false);
     s.start();const r=await oc.startRendering(),out=[];
     for(let c=0;c<nc;c++)out.push(r.getChannelData(c));
     await deliver(out,sr,$('#rfname').value,rmsg);
@@ -516,17 +546,28 @@ $('#rcrop').onclick=()=>{
 $('#rundo').onclick=()=>{const h=rhist.pop();if(!h)return;rStop();rb=h.rb;rid++;rS=h.rS;rE=h.rE;rpos=rS;rCalc();rUi();rmsg('')};
 $('#rmic').onfocus=()=>{if(!rAsked){rAsked=true;rMics(true)}};
 const rRow=(id,lab,min,max,step,val)=>`<label class="row"><span>${lab}</span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><b id="v-${id}"></b></label>`;
-$('#rtools').insertAdjacentHTML('beforeend','<button class="tool" id="rt-ns" aria-expanded="false" aria-controls="rd-ns"><span>Шумоподавление</span><span class="ch">▾</span></button><button class="tool" id="rt-cp" aria-expanded="false" aria-controls="rd-cp"><span>Компрессор</span><span class="ch">▾</span></button>');
-$('#rdrawers').insertAdjacentHTML('beforeend',`<div class="drawer" id="rd-ns"><div><div class="din"><label class="chk"><input type="checkbox" id="ns-on" checked>Шумоподавление браузера (включается при записи)</label>${rRow('ns-lvl','Подавление шума',0,100,1,50)}<small>Ползунок убирает тихий фон и шипение в паузах. Чем больше значение, тем сильнее, но на очень высоких значениях могут «проглатываться» тихие звуки. Меняйте после записи и слушайте результат.</small></div></div></div><div class="drawer" id="rd-cp"><div><div class="din"><label class="chk"><input type="checkbox" id="cp-on" checked>Компрессор включён</label>${rRow('cp-thr','Порог, дБ',-60,0,1,-24)}${rRow('cp-ratio','Степень сжатия',1,20,.5,4)}${rRow('cp-att','Атака, мс',0,100,1,10)}${rRow('cp-rel','Восстановление, мс',50,1000,10,250)}${rRow('cp-mk','Усиление, дБ',0,24,.5,6)}<small>Компрессор выравнивает громкость: тихое подтягивает, громкое придавливает. Порог задаёт уровень, с которого он начинает работать, усиление поднимает общий уровень после сжатия.</small></div></div></div>`);
-['ns','cp'].forEach(k=>{const t=$('#rt-'+k),d=$('#rd-'+k);t.onclick=()=>t.setAttribute('aria-expanded',d.classList.toggle('open'))});
+$('#rtools').insertAdjacentHTML('beforeend',[['ns','Шумоподавление'],['eq','Тон и громкость'],['cp','Компрессор'],['fx','Эффекты']].map(([k,l])=>`<button class="tool" id="rt-${k}" aria-expanded="false" aria-controls="rd-${k}"><span>${l}</span><span class="ch">▾</span></button>`).join(''));
+$('#rdrawers').insertAdjacentHTML('beforeend',`
+<div class="drawer" id="rd-ns"><div><div class="din"><label class="chk"><input type="checkbox" id="ns-on" checked>Шумоподавление браузера (включается при записи)</label>${rRow('ns-lvl','Подавление шума',0,100,1,50)}<small>Ползунок убирает тихий фон и шипение в паузах. Чем больше значение, тем сильнее, но на очень высоких значениях могут «проглатываться» тихие звуки. Меняйте после записи и слушайте результат.</small></div></div></div>
+<div class="drawer" id="rd-eq"><div><div class="din">${rRow('eq-vol','Громкость записи',-12,12,.5,0)}${rRow('eq-bass','Низкие частоты',-12,12,.5,0)}${rRow('eq-treb','Высокие частоты',-12,12,.5,0)}<label class="chk"><input type="checkbox" id="eq-hp">Убрать низкий гул (фильтр до 90 Гц)</label><small>Низкие делают голос плотнее, высокие добавляют чёткости. Фильтр гула убирает рокот от стола, вентилятора и ветра.</small></div></div></div>
+<div class="drawer" id="rd-cp"><div><div class="din"><label class="chk"><input type="checkbox" id="cp-on" checked>Компрессор включён</label><div class="chips" id="cp-pre"><button class="chip" data-p="25">Мягкий</button><button class="chip on" data-p="55">Голос</button><button class="chip" data-p="85">Сильный</button></div>${rRow('cp-pw','Сила',0,100,1,55)}${rRow('cp-mk','Усиление, дБ',0,24,.5,6)}<small>Компрессор выравнивает громкость: тихое подтягивает, громкое придавливает. Выберите готовый вариант или двигайте «Силу». «Усиление» поднимает общий уровень после сжатия.</small></div></div></div>
+<div class="drawer" id="rd-fx"><div><div class="din"><div class="chips" id="fx-list">${[['none','Без эффекта'],['echo','Эхо'],['robot','Робот'],['tiny','Лилипут'],['giant','Великан'],['radio','Рация'],['hall','Зал']].map(([k,l])=>`<button class="chip${k==='none'?' on':''}" data-fx="${k}">${l}</button>`).join('')}</div>${rRow('fx-lvl','Сила эффекта',0,100,1,60)}<small>Эффект слышно при прослушивании, он попадает в скачанный MP3. «Лилипут» и «Великан» меняют высоту голоса, скорость остаётся прежней. «Рация» делает звук как из переговорного устройства, «Зал» добавляет гулкое помещение.</small></div></div></div>`);
+['ns','eq','cp','fx'].forEach(k=>{const t=$('#rt-'+k),d=$('#rd-'+k);t.onclick=()=>t.setAttribute('aria-expanded',d.classList.toggle('open'))});
 const rv=(id,f)=>{const el=$('#'+id),sh=()=>{$('#v-'+id).textContent=f(+el.value)};el.addEventListener('input',sh);sh();return el};
-const nsl=rv('ns-lvl',v=>v+'%');
-nsl.addEventListener('input',()=>{NS.lvl=nsl.value/100;clearTimeout(rtm);rtm=setTimeout(()=>{rBuild();rCalc();if(rplay){rpos=rCur();rPlay()}},250)});
+const rApply=()=>{clearTimeout(rtm);rtm=setTimeout(()=>{if(rb){rBuild();rCalc()}if(rplay){rpos=rCur();rPlay()}},200)};
+const nsl=rv('ns-lvl',v=>v+'%');nsl.addEventListener('input',()=>{NS.lvl=nsl.value/100;rApply()});
 $('#ns-on').onchange=e=>{NS.on=e.target.checked};
-$('#cp-on').onchange=e=>{CP.on=e.target.checked;if(rplay){rpos=rCur();rPlay()}};
-[['cp-thr','thr',v=>v+' дБ'],['cp-ratio','ratio',v=>'×'+v],['cp-att','att',v=>v+' мс'],['cp-rel','rel',v=>v+' мс'],['cp-mk','mk',v=>'+'+v+' дБ']].forEach(([id,k,f])=>{
-  const el=rv(id,f);el.addEventListener('input',()=>{CP[k]=+el.value;if(rcomp)cpSet(rcomp);if(rmk)rmk.gain.value=Math.pow(10,CP.mk/20)});
-});
+[['eq-vol','vol'],['eq-bass','bass'],['eq-treb','treb']].forEach(([id,k])=>{const el=rv(id,v=>(v>0?'+':'')+v+' дБ');el.addEventListener('input',()=>{EQ[k]=+el.value;rApply()})});
+$('#eq-hp').onchange=e=>{EQ.hp=e.target.checked;rApply()};
+$('#cp-on').onchange=e=>{CP.on=e.target.checked;rApply()};
+const cpw=rv('cp-pw',v=>v+'%'),cmk=rv('cp-mk',v=>'+'+v+' дБ');
+const cpSync=()=>{const q=cpw.value/100;CP.thr=-10-24*q;CP.ratio=1.5+8.5*q;CP.mk=+cmk.value;if(rcomp)cpSet(rcomp);if(rmk)rmk.gain.value=Math.pow(10,CP.mk/20)};
+cpw.addEventListener('input',()=>{document.querySelectorAll('#cp-pre .chip').forEach(c=>c.classList.toggle('on',c.dataset.p===cpw.value));cpSync()});
+cmk.addEventListener('input',cpSync);
+document.querySelectorAll('#cp-pre .chip').forEach(c=>{c.onclick=()=>{cpw.value=c.dataset.p;cpw.dispatchEvent(new Event('input'))}});
+cpSync();
+const fxl=rv('fx-lvl',v=>v+'%');fxl.addEventListener('input',()=>{FX.lvl=fxl.value/100;rApply()});
+document.querySelectorAll('#fx-list .chip').forEach(c=>{c.onclick=()=>{FX.type=c.dataset.fx;document.querySelectorAll('#fx-list .chip').forEach(x=>x.classList.toggle('on',x===c));rApply()}});
 $('#rfext').textContent=typeof lamejs!=='undefined'?'.mp3':'.wav';
 rUi();requestAnimationFrame(rframe);
 $('#fext').textContent=typeof lamejs!=='undefined'?'.mp3':'.wav';
