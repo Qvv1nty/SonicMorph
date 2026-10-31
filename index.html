@@ -15,10 +15,10 @@ body{background:var(--bg);color:var(--ink);font-family:Onest,system-ui,sans-seri
 main{max-width:1000px;margin:0 auto}
 h1{font-weight:700;font-size:clamp(30px,6vw,64px);line-height:1.05;letter-spacing:-.02em;margin:0 0 14px;padding-right:64px}
 p.lead{max-width:52ch;font-size:18px;line-height:1.5;margin:0 0 32px}
-#stage{position:relative;height:clamp(200px,34vw,300px);background:var(--card);border-radius:36px;touch-action:none;cursor:pointer;overflow:hidden}
-#wave{position:absolute;inset:0;width:100%;height:100%}
-#empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;pointer-events:none}
-#empty b{font-weight:700;font-size:clamp(18px,2.6vw,26px);background:var(--bg);padding:6px 18px;border-radius:99px}
+#stage,#rstage{position:relative;height:clamp(200px,34vw,300px);background:var(--card);border-radius:36px;touch-action:none;cursor:pointer;overflow:hidden}
+#wave,#rwave{position:absolute;inset:0;width:100%;height:100%}
+#empty,#rempty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;pointer-events:none}
+#empty b,#rempty b{font-weight:700;font-size:clamp(18px,2.6vw,26px);background:var(--bg);padding:6px 18px;border-radius:99px}
 #stage.drag{outline:4px dashed var(--pink);outline-offset:-12px}
 .h{position:absolute;top:0;bottom:0;width:36px;margin-left:-18px;cursor:ew-resize;display:none;justify-content:center}
 .h::before{content:"";width:6px;height:100%;background:var(--pink);border-radius:3px}
@@ -37,8 +37,8 @@ button:focus-visible,.btn:focus-within,.h:focus-visible{outline:3px solid var(--
 #loop[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
 #crop{background:var(--ink);color:var(--bg)}
 .btn input{position:absolute;opacity:0;width:1px;height:1px}
-#info{margin-left:auto;font-size:15px;text-align:right;line-height:1.4}
-#info b{font-size:22px}
+#info,#rinfo{margin-left:auto;font-size:15px;text-align:right;line-height:1.4}
+#info b,#rinfo b{font-size:22px}
 #msg{min-height:1.5em;margin-top:14px;font-weight:600;color:var(--pink)}
 .tools{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
 .tool{display:flex;align-items:center;gap:10px}
@@ -65,11 +65,8 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 #save{display:flex;align-items:center;gap:10px;background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
 #save svg{width:20px;height:20px}
 select{flex:1 1 220px;min-width:0;font:600 16px Onest,sans-serif;color:var(--ink);background:var(--bg);border:2px solid var(--ink);border-radius:99px;padding:10px 16px}
-#rec::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:currentColor;margin-right:10px}
-#rec.live{background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
-#rec.live::before{animation:pulse 1s infinite}
 @keyframes pulse{50%{opacity:.2}}
-.rec .h,.rec #empty{display:none!important}
+.rec .h,.rec #rempty{display:none!important}
 #menu{position:fixed;top:calc(env(safe-area-inset-top,0px) + 16px);right:16px;z-index:30;width:54px;height:54px;padding:0;border-radius:50%;background:var(--card);display:grid;place-items:center}
 #menu i{position:absolute;width:22px;height:3px;border-radius:2px;background:currentColor;transition:transform .35s cubic-bezier(.2,.9,.2,1),opacity .2s}
 #menu i:nth-child(1){transform:translateY(-7px)}
@@ -86,7 +83,19 @@ body.side #scrim{opacity:.45;pointer-events:auto}
 .nav.on{background:var(--ink);color:var(--bg)}
 .nav b{display:block;font-size:18px}
 .nav span{font-size:14px;opacity:.8}
-@media (max-width:600px){#info{margin-left:0;text-align:left;width:100%}}
+#rrec{background:var(--pink);border-color:var(--pink);color:var(--on-pink)}
+#rrec::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;background:currentColor;margin-right:10px}
+#rrec.live{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+#rrec.live::before{background:var(--pink);animation:pulse 1s infinite}
+#rmic{flex:0 1 260px}
+#rmsg{min-height:1.5em;margin-top:14px;font-weight:600;color:var(--pink)}
+.nav+.nav{margin-top:10px}
+.row{display:flex;align-items:center;gap:12px;flex:1 1 320px}
+.row span{min-width:130px;font-size:15px}
+.row b{min-width:70px;text-align:right;font-size:16px}
+.chk{display:flex;align-items:center;gap:10px;width:100%;font-weight:600}
+input[type=checkbox]{accent-color:var(--pink);width:22px;height:22px;flex:none}
+@media (max-width:600px){#info,#rinfo{margin-left:0;text-align:left;width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
@@ -120,11 +129,37 @@ body.side #scrim{opacity:.45;pointer-events:auto}
   <button id="save" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Скачать</button>
 </div>
 </section>
+<section data-view="rec" hidden>
+<h1>Звукозапись</h1>
+<p class="lead">Запишите голос, уберите шум, выровняйте громкость компрессором, обрежьте лишнее и скачайте MP3.</p>
+<div id="rstage"><canvas id="rwave"></canvas>
+  <div id="rempty"><b>Здесь появится запись</b><span>выберите микрофон и нажмите «Записать»</span></div>
+  <div class="h" id="rhs"><i></i><em></em></div>
+  <div class="h" id="rhe"><i></i><em></em></div>
+</div>
+<div class="bar">
+  <button id="rrec">Записать</button>
+  <button id="rplay" disabled>Слушать</button>
+  <button id="rcrop" disabled>Обрезать</button>
+  <button id="rundo" disabled>Отменить</button>
+  <select id="rmic" aria-label="Микрофон"></select>
+  <div id="rinfo"><b id="rt">0:00.00</b><br><span id="rinfot">Записи пока нет</span></div>
+</div>
+<div id="rmsg" role="status"></div>
+<div class="tools" id="rtools"></div>
+<div id="rdrawers"></div>
+<div class="dl">
+  <span id="routinfo"></span>
+  <div class="fn"><input id="rfname" type="text" maxlength="80" placeholder="Имя файла" aria-label="Имя скачиваемого файла" disabled><b id="rfext">.mp3</b></div>
+  <button id="rsave" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Скачать</button>
+</div>
+</section>
 </main>
 <button id="menu" aria-label="Открыть меню" aria-expanded="false" aria-controls="side"><i></i><i></i><i></i></button>
 <div id="scrim"></div>
 <aside id="side" aria-label="Разделы сайта"><h2>Инструменты</h2>
   <button class="nav on" data-go="audio"><b>Аудиоредактор</b><span>Обрезка, скорость, высота, громкость</span></button>
+  <button class="nav" data-go="rec"><b>Звукозапись</b><span>Микрофон, шумоподавление, компрессор, MP3</span></button>
 </aside>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.0/lame.min.js"></script>
@@ -133,7 +168,7 @@ const $=s=>document.querySelector(s);
 const cv=$('#wave'),c=cv.getContext('2d'),stage=$('#stage'),hs=$('#hs'),he=$('#he');
 const reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 const PLAY='M7 4l13 8-13 8z',PAUSE='M6 4h4v16H6zM14 4h4v16h-4z';
-let actx,buf,peaks=[],S=0,E=0,pos=0,playing=false,loop=false,src,t0=0,base=0,hist=[],W=0,H=0,born=0,drag=null,name='',gain,cache=null,bid=0,rate=1,busy=false,mrec=null,lv=[],fc=0;
+let actx,buf,peaks=[],S=0,E=0,pos=0,playing=false,loop=false,src,t0=0,base=0,hist=[],W=0,H=0,born=0,drag=null,name='',gain,cache=null,bid=0,rate=1,busy=false;
 const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const fmt=t=>{t=Math.max(0,t);const m=Math.floor(t/60),s=t-m*60;return m+':'+s.toFixed(2).padStart(5,'0')};
 const msg=t=>$('#msg').textContent=t||'';
@@ -156,13 +191,12 @@ function curPos(){
 }
 function frame(now){
   const p=curPos();if(playing)pos=p;
-  if(mrec&&++fc%3===0){mrec.an.getFloatTimeDomainData(mrec.ab);let q=0;for(const v of mrec.ab)q+=v*v;lv.push(Math.min(1,Math.sqrt(q/mrec.ab.length)*4));if(lv.length>300)lv.shift()}
   const n=iw()/11,dur=buf?buf.duration:1;
   c.clearRect(0,0,W,H);c.lineCap='round';c.lineWidth=7;
   const px=buf?pad()+p/dur*iw():-999,g=Math.min(1,(now-born)/900);
   for(let i=0;i<n;i++){
     const x=pad()+i*11+5.5,t=(x-pad())/iw()*dur;let h;
-    if(mrec){h=Math.max(.05,lv[lv.length-n+i]||0)*H*.46;c.strokeStyle=css('--pink')}else if(buf){
+    if(buf){
       const e=reduce?1:Math.min(1,Math.max(0,g*1.6-i/n*.6));
       h=(.06+(peaks[i]||0)*.86)*H*.5*(1-Math.pow(1-e,3));
       if(playing&&!reduce){const d=(x-px)/11;h*=1+.8*Math.exp(-d*d*1.6)}
@@ -173,7 +207,7 @@ function frame(now){
     }
     h=Math.min(h,H/2-10);c.beginPath();c.moveTo(x,H/2-h);c.lineTo(x,H/2+h);c.stroke();
   }
-  if(buf&&!mrec){
+  if(buf){
     c.fillStyle=css('--ink');c.fillRect(px-1.5,0,3,H);
     hs.style.left=pad()+S/dur*iw()+'px';he.style.left=pad()+E/dur*iw()+'px';
     hs.firstChild.nextSibling.textContent=fmt(S);he.firstChild.nextSibling.textContent=fmt(E);
@@ -271,7 +305,7 @@ $('#file').onchange=e=>load(e.target.files[0]);
 ['dragenter','dragover'].forEach(v=>stage.addEventListener(v,e=>{e.preventDefault();stage.classList.add('drag')}));
 ['dragleave','drop'].forEach(v=>stage.addEventListener(v,e=>{e.preventDefault();stage.classList.remove('drag')}));
 stage.addEventListener('drop',e=>load(e.dataTransfer.files[0]));
-addEventListener('keydown',e=>{if(e.code==='Space'&&buf&&!/BUTTON|INPUT/.test(document.activeElement.tagName)&&document.activeElement.getAttribute('role')!=='slider'){e.preventDefault();playing?stop():play()}});
+addEventListener('keydown',e=>{if(e.code==='Space'&&buf&&!$('[data-view="audio"]').hidden&&!/BUTTON|INPUT/.test(document.activeElement.tagName)&&document.activeElement.getAttribute('role')!=='slider'){e.preventDefault();playing?stop():play()}});
 const B={speed:50,pitch:50,vol:10},V={speed:0,pitch:0,vol:0},NM={speed:'Скорость',pitch:'Высота',vol:'Громкость'};
 const HINT={speed:'Темп меняется, высота звука остаётся прежней. От ×0.02 до ×50.',pitch:'Высота меняется, длительность остаётся прежней. От ×0.02 до ×50.',vol:'От ×0.1 до ×10. Сильное усиление может искажать звук.'};
 const fac=k=>Math.pow(B[k],V[k]),setVol=()=>{if(gain)gain.gain.value=fac('vol')};
@@ -334,46 +368,167 @@ $('#save').onclick=async()=>{
     else{const u=URL.createObjectURL(data),l=document.createElement('a');l.href=u;l.download=fn;l.click();setTimeout(()=>URL.revokeObjectURL(u),4000);msg('Файл сохранён: '+fn+(ext==='wav'?'. MP3 не получился, поэтому сохранён WAV.':''))}
   }catch(e){msg(e&&e.code==='declined'?'':'Не удалось сохранить файл.')}finally{busy=false}
 };
-let micAsked=false;
 function initAudio(){if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();gain=actx.createGain();gain.connect(actx.destination);setVol()}}
 const micErr=e=>!navigator.mediaDevices?'Запись недоступна: нужен адрес https (например, GitHub Pages) или локальный файл.':e&&e.name==='NotFoundError'?'Микрофон не найден.':e&&e.name==='NotAllowedError'?'Доступ к микрофону запрещён. Разрешите его в браузере для этого сайта. Во встроенном окне предпросмотра запись может быть заблокирована.':'Не удалось включить микрофон.';
-async function listMics(ask){
-  const sel=$('#mic');
+let rW=0,rH=0,rb=null,rg=null,rkey='',rid=0,rS=0,rE=0,rpos=0,rplay=false,rsrc=null,rt0=0,rbase=0,rhist=[],rpk=[],rm=null,rlv=[],rfc=0,rdrag=null,rborn=0,rcomp=null,rmk=null,rbusy=false,rAsked=false,rtm;
+const rst=$('#rstage'),rcv=$('#rwave'),rcx=rcv.getContext('2d'),rhs=$('#rhs'),rhe=$('#rhe');
+const NS={on:true,lvl:.5},CP={on:true,thr:-24,ratio:4,att:10,rel:250,mk:6};
+const rmsg=t=>{$('#rmsg').textContent=t||''};
+const riw=()=>Math.max(11,Math.floor((rW-72)/11)*11),rpad=()=>(rW-riw())/2;
+const rCur=()=>rplay?Math.min(rE,rbase+Math.max(0,actx.currentTime-(actx.outputLatency||actx.baseLatency||0)-rt0)):rpos;
+const rT=e=>{const r=rst.getBoundingClientRect();return Math.min(1,Math.max(0,(e.clientX-r.left-rpad())/riw()))*rb.duration};
+function cpSet(c){c.threshold.value=CP.thr;c.knee.value=24;c.ratio.value=CP.ratio;c.attack.value=CP.att/1000;c.release.value=CP.rel/1000}
+function gateBuf(b,st){
+  if(st<=0)return b;
+  const sr=b.sampleRate,n=b.length,nc=b.numberOfChannels,thr=Math.pow(10,(-72+42*st)/20),fl=Math.pow(10,-(36*st)/20);
+  const ca=Math.exp(-1/(sr*.005)),cr=Math.exp(-1/(sr*.15)),ce=Math.exp(-1/(sr*.08)),out=actx.createBuffer(nc,n,sr),X=[],Y=[];
+  for(let c=0;c<nc;c++){X.push(b.getChannelData(c));Y.push(out.getChannelData(c))}
+  let env=0,g=fl;
+  for(let i=0;i<n;i++){
+    let m=0;for(let c=0;c<nc;c++){const v=Math.abs(X[c][i]);if(v>m)m=v}
+    env=m>env?m:env*ce+m*(1-ce);
+    const tg=env>thr?1:fl;g=tg+(g-tg)*(tg>g?ca:cr);
+    for(let c=0;c<nc;c++)Y[c][i]=X[c][i]*g;
+  }
+  return out;
+}
+function rBuild(){
+  if(!rb)return null;
+  const key=rid+'|'+NS.lvl;
+  if(rkey!==key){rg=gateBuf(rb,NS.lvl);rkey=key}
+  return rg;
+}
+function rCalc(){
+  rpk=[];const g=rBuild();if(!g)return;
+  const n=riw()/11,a=g.getChannelData(0),blk=Math.max(1,Math.floor(a.length/n)),st=Math.max(1,Math.floor(blk/40));let mx=0;
+  for(let i=0;i<n;i++){let m=0;for(let j=i*blk;j<(i+1)*blk&&j<a.length;j+=st){const v=Math.abs(a[j]);if(v>m)m=v}rpk.push(m);if(m>mx)mx=m}
+  rpk=rpk.map(v=>v/(mx||1));
+}
+function rUi(){
+  const on=!!rb;['rplay','rcrop','rsave','rfname'].forEach(i=>{$('#'+i).disabled=!on});
+  $('#rundo').disabled=!rhist.length;$('#rempty').style.display=on?'none':'flex';rst.classList.toggle('loaded',on);
+  $('#rinfot').textContent=on?fmt(rE-rS)+' выбрано, всего '+fmt(rb.duration):'Записи пока нет';
+  $('#routinfo').textContent=on?'Скачается выбранный кусок с шумоподавлением и компрессором':'Скачивать пока нечего: сделайте запись.';
+}
+function rPlay(){
+  if(!rb)return;actx.resume();stop();rStop(false);
+  if(rpos<rS||rpos>=rE-.02)rpos=rS;
+  const s=actx.createBufferSource();s.buffer=rBuild();rcomp=rmk=null;
+  if(CP.on){const c=actx.createDynamicsCompressor();cpSet(c);const m=actx.createGain();m.gain.value=Math.pow(10,CP.mk/20);s.connect(c);c.connect(m);m.connect(actx.destination);rcomp=c;rmk=m}else s.connect(actx.destination);
+  s.start(0,rpos,rE-rpos);
+  s.onended=()=>{if(rsrc===s){rplay=false;rpos=rS;$('#rplay').textContent='Слушать'}};
+  rsrc=s;rt0=actx.currentTime;rbase=rpos;rplay=true;$('#rplay').textContent='Пауза';
+}
+function rStop(keep=true){
+  if(rplay&&keep)rpos=rCur();
+  if(rsrc){rsrc.onended=null;try{rsrc.stop()}catch(e){}rsrc=null}
+  rplay=false;$('#rplay').textContent='Слушать';
+}
+async function rMics(ask){
+  const sel=$('#rmic');
   try{
     if(!navigator.mediaDevices)throw 0;
     if(ask){const s=await navigator.mediaDevices.getUserMedia({audio:true});s.getTracks().forEach(t=>t.stop())}
     const d=(await navigator.mediaDevices.enumerateDevices()).filter(x=>x.kind==='audioinput'),cur=sel.value;
     sel.replaceChildren(...d.map((x,i)=>new Option(x.label||'Микрофон '+(i+1),x.deviceId)));
-    if(cur)sel.value=cur;
-    $('#mnote').textContent=d.length?'Выберите микрофон и нажмите «Записать». Новая запись заменит текущий звук, вернуть его можно кнопкой «Отменить».':'Микрофон не найден.';
-  }catch(e){micAsked=false;$('#mnote').textContent=micErr(e)}
+    if(cur)sel.value=cur;rmsg(d.length?'':'Микрофон не найден.');
+  }catch(e){rAsked=false;rmsg(micErr(e))}
 }
-async function recToggle(){
-  if(mrec){mrec.mr.stop();return}
+async function rToggle(){
+  if(rm){rm.mr.stop();return}
   try{
-    const id=$('#mic').value,stream=await navigator.mediaDevices.getUserMedia({audio:id?{deviceId:{exact:id}}:true});
-    initAudio();actx.resume();stop();
-    const src=actx.createMediaStreamSource(stream),an=actx.createAnalyser(),mr=new MediaRecorder(stream),chunks=[];
+    const id=$('#rmic').value,cs={echoCancellation:false,autoGainControl:false,noiseSuppression:NS.on};if(id)cs.deviceId={exact:id};
+    const stream=await navigator.mediaDevices.getUserMedia({audio:cs});
+    initAudio();actx.resume();stop();rStop();
+    const src=actx.createMediaStreamSource(stream),an=actx.createAnalyser(),mr=new MediaRecorder(stream),ch=[];
     an.fftSize=1024;src.connect(an);
-    const t0=performance.now(),iv=setInterval(()=>{$('#rt').textContent=fmt((performance.now()-t0)/1000)},100);
-    mr.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};
+    mr.ondataavailable=e=>{if(e.data.size)ch.push(e.data)};
     mr.onstop=async()=>{
-      clearInterval(iv);stream.getTracks().forEach(t=>t.stop());src.disconnect();
-      mrec=null;stage.classList.remove('rec');$('#rec').classList.remove('live');$('#rec').textContent='Записать';
+      stream.getTracks().forEach(t=>t.stop());src.disconnect();
+      rm=null;rst.classList.remove('rec');const b=$('#rrec');b.classList.remove('live');b.textContent='Записать';
       try{
-        const nb=await actx.decodeAudioData(await new Blob(chunks).arrayBuffer());
-        if(buf)hist.push({buf,S,E});
-        bid++;buf=nb;name='Запись';$('#fname').value='Запись';S=0;E=nb.duration;pos=0;born=performance.now();calc();ui();msg('Запись готова: обрежьте, поменяйте и скачайте.');
-      }catch(e){msg('Не удалось обработать запись.')}
+        const nb=await actx.decodeAudioData(await new Blob(ch).arrayBuffer());
+        if(rb)rhist.push({rb,rS,rE});
+        rb=nb;rid++;rS=0;rE=nb.duration;rpos=0;rborn=performance.now();$('#rfname').value='Запись';rCalc();rUi();
+        rmsg('Запись готова. Настройте шумоподавление и компрессор, обрежьте лишнее и скачайте.');
+      }catch(e){rmsg('Не удалось обработать запись.')}
     };
-    mrec={mr,an,ab:new Float32Array(an.fftSize)};lv=[];msg('');
-    mr.start();stage.classList.add('rec');$('#rec').classList.add('live');$('#rec').textContent='Остановить';
-  }catch(e){$('#mnote').textContent=micErr(e)}
+    rm={mr,an,ab:new Float32Array(an.fftSize),t0:performance.now()};rlv=[];rmsg('');
+    mr.start();rst.classList.add('rec');$('#rrec').classList.add('live');$('#rrec').textContent='Остановить';
+  }catch(e){rmsg(micErr(e))}
 }
-$('#tools').insertAdjacentHTML('beforeend','<button class="tool" id="t-mic" aria-expanded="false" aria-controls="d-mic"><span>Микрофон</span><span class="ch">▾</span></button>');
-$('#drawers').insertAdjacentHTML('beforeend','<div class="drawer" id="d-mic"><div><div class="din"><select id="mic" aria-label="Микрофон"></select><button id="rec">Записать</button><b id="rt">0:00.00</b><small id="mnote">Нужен доступ к микрофону: браузер спросит разрешение.</small></div></div></div>');
-$('#t-mic').onclick=function(){const o=$('#d-mic').classList.toggle('open');this.setAttribute('aria-expanded',o);if(o&&!micAsked){micAsked=true;listMics(true)}};
-$('#rec').onclick=recToggle;
+async function deliver(out,sr,nm,say){
+  const base=(nm.replace(/[^\p{L}\p{N} ._()-]+/gu,'').replace(/^\.+/,'').trim()||'audio').slice(0,80);
+  let ext='mp3',data;
+  try{if(typeof lamejs==='undefined')throw 0;data=mp3Of(out,sr)}catch(e){ext='wav';data=new Blob([wavOf(out,sr)],{type:'audio/wav'})}
+  const fn=base+'.'+ext,dl=window.claude?await claude.use('downloads').catch(()=>null):null;
+  if(dl){await dl.save({filename:base+'.zip',data:zipOne(fn,new Uint8Array(await data.arrayBuffer()))});say('Готово. Внутри скачанного .zip лежит файл .'+ext+'.')}
+  else{const u=URL.createObjectURL(data),l=document.createElement('a');l.href=u;l.download=fn;l.click();setTimeout(()=>URL.revokeObjectURL(u),4000);say('Файл сохранён: '+fn+(ext==='wav'?'. MP3 не получился, поэтому сохранён WAV.':''))}
+}
+async function rSave(){
+  if(!rb||rbusy)return;rbusy=true;rStop();rmsg('Готовлю файл…');await new Promise(q=>setTimeout(q,30));
+  try{
+    const g=rBuild(),sr=g.sampleRate,a=Math.floor(rS*sr),z=Math.min(g.length,Math.ceil(rE*sr)),nc=g.numberOfChannels,len=z-a;
+    const oc=new OfflineAudioContext(nc,len,sr),sb=oc.createBuffer(nc,len,sr);
+    for(let c=0;c<nc;c++)sb.copyToChannel(g.getChannelData(c).subarray(a,z),c);
+    const s=oc.createBufferSource();s.buffer=sb;
+    if(CP.on){const c=oc.createDynamicsCompressor();cpSet(c);const m=oc.createGain();m.gain.value=Math.pow(10,CP.mk/20);s.connect(c);c.connect(m);m.connect(oc.destination)}else s.connect(oc.destination);
+    s.start();const r=await oc.startRendering(),out=[];
+    for(let c=0;c<nc;c++)out.push(r.getChannelData(c));
+    await deliver(out,sr,$('#rfname').value,rmsg);
+  }catch(e){rmsg('Не удалось сохранить файл.')}finally{rbusy=false}
+}
+function rframe(now){
+  requestAnimationFrame(rframe);
+  if(!rst.offsetParent)return;
+  const d=devicePixelRatio||1,w=rst.clientWidth,h=rst.clientHeight,c=rcx;
+  if(w!==rW||h!==rH){rW=w;rH=h;rcv.width=w*d;rcv.height=h*d;c.setTransform(d,0,0,d,0,0);rCalc()}
+  if(rm&&++rfc%3===0){rm.an.getFloatTimeDomainData(rm.ab);let q=0;for(const v of rm.ab)q+=v*v;rlv.push(Math.min(1,Math.sqrt(q/rm.ab.length)*4));if(rlv.length>300)rlv.shift();$('#rt').textContent=fmt((performance.now()-rm.t0)/1000)}
+  const p=rCur(),dur=rb?rb.duration:1;if(rplay)rpos=p;
+  const n=riw()/11,P=rpad(),IW=riw(),px=rb?P+p/dur*IW:-999,g=Math.min(1,(now-rborn)/900);
+  c.clearRect(0,0,rW,rH);c.lineCap='round';c.lineWidth=7;
+  for(let i=0;i<n;i++){
+    const x=P+i*11+5.5,t=(x-P)/IW*dur;let hh;
+    if(rm){hh=Math.max(.05,rlv[rlv.length-n+i]||0)*rH*.46;c.strokeStyle=css('--pink')}
+    else if(rb){
+      const e=reduce?1:Math.min(1,Math.max(0,g*1.6-i/n*.6));hh=(.06+(rpk[i]||0)*.86)*rH*.5*(1-Math.pow(1-e,3));
+      if(rplay&&!reduce){const dd=(x-px)/11;hh*=1+.8*Math.exp(-dd*dd*1.6)}
+      c.strokeStyle=(t>=rS&&t<=rE)?css('--pink'):css('--dim');if(rplay&&Math.abs(x-px)<5.5)c.strokeStyle=css('--ink');
+    }else{hh=(.2+.14*Math.sin(i*.37+(reduce?0:now/500))+.1*Math.sin(i*.11-(reduce?0:now/900)))*rH*.5;c.strokeStyle=css('--dim')}
+    hh=Math.min(hh,rH/2-10);c.beginPath();c.moveTo(x,rH/2-hh);c.lineTo(x,rH/2+hh);c.stroke();
+  }
+  if(rb&&!rm){c.fillStyle=css('--ink');c.fillRect(px-1.5,0,3,rH);rhs.style.left=P+rS/dur*IW+'px';rhe.style.left=P+rE/dur*IW+'px';rhs.children[1].textContent=fmt(rS);rhe.children[1].textContent=fmt(rE)}
+}
+[rhs,rhe].forEach(h=>{
+  h.addEventListener('pointerdown',e=>{e.stopPropagation();rdrag=h;h.classList.add('on');h.setPointerCapture(e.pointerId);if(rplay)rStop()});
+  h.addEventListener('pointermove',e=>{if(rdrag!==h)return;const t=rT(e);if(h===rhs)rS=Math.min(t,rE-.05);else rE=Math.max(t,rS+.05);rpos=Math.min(rE,Math.max(rS,rpos));rUi()});
+  const up=()=>{rdrag=null;h.classList.remove('on')};h.addEventListener('pointerup',up);h.addEventListener('pointercancel',up);
+});
+rst.addEventListener('pointerdown',e=>{if(!rb||rm)return;rpos=Math.min(rE,Math.max(rS,rT(e)));if(rplay)rPlay()});
+$('#rrec').onclick=rToggle;
+$('#rplay').onclick=()=>rplay?rStop():rPlay();
+$('#rsave').onclick=rSave;
+$('#rcrop').onclick=()=>{
+  rStop();const sr=rb.sampleRate,a=Math.floor(rS*sr),z=Math.min(rb.length,Math.ceil(rE*sr)),nb=actx.createBuffer(rb.numberOfChannels,z-a,sr);
+  for(let c=0;c<rb.numberOfChannels;c++)nb.copyToChannel(rb.getChannelData(c).subarray(a,z),c);
+  rhist.push({rb,rS,rE});rb=nb;rid++;rS=0;rE=nb.duration;rpos=0;rborn=performance.now();rCalc();rUi();rmsg('Обрезано. Если ошиблись, нажмите «Отменить».');
+};
+$('#rundo').onclick=()=>{const h=rhist.pop();if(!h)return;rStop();rb=h.rb;rid++;rS=h.rS;rE=h.rE;rpos=rS;rCalc();rUi();rmsg('')};
+$('#rmic').onfocus=()=>{if(!rAsked){rAsked=true;rMics(true)}};
+const rRow=(id,lab,min,max,step,val)=>`<label class="row"><span>${lab}</span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><b id="v-${id}"></b></label>`;
+$('#rtools').insertAdjacentHTML('beforeend','<button class="tool" id="rt-ns" aria-expanded="false" aria-controls="rd-ns"><span>Шумоподавление</span><span class="ch">▾</span></button><button class="tool" id="rt-cp" aria-expanded="false" aria-controls="rd-cp"><span>Компрессор</span><span class="ch">▾</span></button>');
+$('#rdrawers').insertAdjacentHTML('beforeend',`<div class="drawer" id="rd-ns"><div><div class="din"><label class="chk"><input type="checkbox" id="ns-on" checked>Шумоподавление браузера (включается при записи)</label>${rRow('ns-lvl','Подавление шума',0,100,1,50)}<small>Ползунок убирает тихий фон и шипение в паузах. Чем больше значение, тем сильнее, но на очень высоких значениях могут «проглатываться» тихие звуки. Меняйте после записи и слушайте результат.</small></div></div></div><div class="drawer" id="rd-cp"><div><div class="din"><label class="chk"><input type="checkbox" id="cp-on" checked>Компрессор включён</label>${rRow('cp-thr','Порог, дБ',-60,0,1,-24)}${rRow('cp-ratio','Степень сжатия',1,20,.5,4)}${rRow('cp-att','Атака, мс',0,100,1,10)}${rRow('cp-rel','Восстановление, мс',50,1000,10,250)}${rRow('cp-mk','Усиление, дБ',0,24,.5,6)}<small>Компрессор выравнивает громкость: тихое подтягивает, громкое придавливает. Порог задаёт уровень, с которого он начинает работать, усиление поднимает общий уровень после сжатия.</small></div></div></div>`);
+['ns','cp'].forEach(k=>{const t=$('#rt-'+k),d=$('#rd-'+k);t.onclick=()=>t.setAttribute('aria-expanded',d.classList.toggle('open'))});
+const rv=(id,f)=>{const el=$('#'+id),sh=()=>{$('#v-'+id).textContent=f(+el.value)};el.addEventListener('input',sh);sh();return el};
+const nsl=rv('ns-lvl',v=>v+'%');
+nsl.addEventListener('input',()=>{NS.lvl=nsl.value/100;clearTimeout(rtm);rtm=setTimeout(()=>{rBuild();rCalc();if(rplay){rpos=rCur();rPlay()}},250)});
+$('#ns-on').onchange=e=>{NS.on=e.target.checked};
+$('#cp-on').onchange=e=>{CP.on=e.target.checked;if(rplay){rpos=rCur();rPlay()}};
+[['cp-thr','thr',v=>v+' дБ'],['cp-ratio','ratio',v=>'×'+v],['cp-att','att',v=>v+' мс'],['cp-rel','rel',v=>v+' мс'],['cp-mk','mk',v=>'+'+v+' дБ']].forEach(([id,k,f])=>{
+  const el=rv(id,f);el.addEventListener('input',()=>{CP[k]=+el.value;if(rcomp)cpSet(rcomp);if(rmk)rmk.gain.value=Math.pow(10,CP.mk/20)});
+});
+$('#rfext').textContent=typeof lamejs!=='undefined'?'.mp3':'.wav';
+rUi();requestAnimationFrame(rframe);
 $('#fext').textContent=typeof lamejs!=='undefined'?'.mp3':'.wav';
 const sideTo=o=>{document.body.classList.toggle('side',o);const m=$('#menu');m.setAttribute('aria-expanded',o);m.setAttribute('aria-label',o?'Закрыть меню':'Открыть меню')};
 $('#menu').onclick=()=>sideTo(!document.body.classList.contains('side'));
@@ -381,7 +536,7 @@ $('#scrim').onclick=()=>sideTo(false);
 addEventListener('keydown',e=>{if(e.key==='Escape')sideTo(false)});
 document.querySelectorAll('.nav').forEach(n=>n.onclick=()=>{
   document.querySelectorAll('[data-view]').forEach(v=>v.hidden=v.dataset.view!==n.dataset.go);
-  document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x===n));sideTo(false);
+  document.querySelectorAll('.nav').forEach(x=>x.classList.toggle('on',x===n));stop();rStop();requestAnimationFrame(resize);if(n.dataset.go==='rec'&&!rAsked){rAsked=true;rMics(true)}sideTo(false);
 });
 addEventListener('resize',resize);resize();ui();requestAnimationFrame(frame);
 </script>
