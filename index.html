@@ -98,6 +98,14 @@ input[type=checkbox]{accent-color:var(--pink);width:22px;height:22px;flex:none}
 .chips{display:flex;flex-wrap:wrap;gap:8px;width:100%}
 .chip{padding:8px 16px;font-size:15px}
 .chip.on{background:var(--ink);color:var(--bg)}
+.fk{position:absolute;top:9px;width:22px;height:22px;margin-left:-11px;border-radius:50%;background:var(--card);border:4px solid var(--pink);cursor:ew-resize;display:none;z-index:3;touch-action:none}
+.loaded .fk{display:block}
+#qual{flex:0 1 190px}
+#qual:disabled{opacity:.35}
+.mq{width:100%;display:grid;gap:8px}
+.mqi{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:18px;background:var(--bg)}
+.mqi span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mini{padding:4px 12px}
 @media (max-width:600px){#info,#rinfo{margin-left:0;text-align:left;width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -113,12 +121,14 @@ input[type=checkbox]{accent-color:var(--pink);width:22px;height:22px;flex:none}
   <div id="empty"><b>Бросьте сюда аудиофайл</b><span>или нажмите «Выбрать файл» ниже</span></div>
   <div class="h" id="hs" tabindex="0" role="slider" aria-label="Начало"><i></i><em></em></div>
   <div class="h" id="he" tabindex="0" role="slider" aria-label="Конец"><i></i><em></em></div>
+  <div class="fk" id="fki" title="Затухание в начале"></div><div class="fk" id="fko" title="Затухание в конце"></div>
 </div>
 
 <div class="bar">
   <button id="play" disabled aria-label="Слушать"><svg viewBox="0 0 24 24" id="ic"><path d="M7 4l13 8-13 8z"/></svg></button>
   <button id="loop" aria-pressed="false" disabled>Повтор</button>
   <button id="crop" disabled>Обрезать</button>
+  <button id="rev" disabled>Реверс</button>
   <button id="undo" disabled>Отменить</button>
   <label class="btn" style="position:relative">Выбрать файл<input type="file" id="file" accept="audio/*"></label>
   <div id="info"><b id="sel">0:00.00</b><br><span id="name">Файл не выбран</span></div>
@@ -129,6 +139,7 @@ input[type=checkbox]{accent-color:var(--pink);width:22px;height:22px;flex:none}
 <div class="dl">
   <span id="outinfo"></span>
   <div class="fn"><input id="fname" type="text" maxlength="80" placeholder="Имя файла" aria-label="Имя скачиваемого файла" disabled><b id="fext">.mp3</b></div>
+  <select id="qual" aria-label="Качество" disabled><option value="128">MP3 128 кбит/с</option><option value="192" selected>MP3 192 кбит/с</option><option value="256">MP3 256 кбит/с</option><option value="320">MP3 320 кбит/с</option><option value="wav">WAV без потерь</option></select>
   <button id="save" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M5 20h14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Скачать</button>
 </div>
 </section>
@@ -201,7 +212,7 @@ function frame(now){
     const x=pad()+i*11+5.5,t=(x-pad())/iw()*dur;let h;
     if(buf){
       const e=reduce?1:Math.min(1,Math.max(0,g*1.6-i/n*.6));
-      h=(.06+(peaks[i]||0)*.86)*H*.5*(1-Math.pow(1-e,3));
+      h=(.06+(peaks[i]||0)*.86)*H*.5*(1-Math.pow(1-e,3));if(t>=S&&t<=E)h*=fadeG(t-S,E-S);
       if(playing&&!reduce){const d=(x-px)/11;h*=1+.8*Math.exp(-d*d*1.6)}
       c.strokeStyle=(t>=S&&t<=E)?css('--pink'):css('--dim');if(playing&&Math.abs(x-px)<5.5)c.strokeStyle=css('--ink');
     }else{
@@ -212,7 +223,8 @@ function frame(now){
   }
   if(buf){
     c.fillStyle=css('--ink');c.fillRect(px-1.5,0,3,H);
-    hs.style.left=pad()+S/dur*iw()+'px';he.style.left=pad()+E/dur*iw()+'px';
+    {const xs=pad()+S/dur*iw(),xe=pad()+E/dur*iw();c.save();c.globalAlpha=.6;c.strokeStyle=css('--ink');c.lineWidth=2.5;c.beginPath();for(let k=0;k<=60;k++){const tt=k/60*(E-S),x=xs+(xe-xs)*k/60,y=20+(1-fadeG(tt,E-S))*46;k?c.lineTo(x,y):c.moveTo(x,y)}c.stroke();c.restore()}
+    hs.style.left=pad()+S/dur*iw()+'px';he.style.left=pad()+E/dur*iw()+'px';fki.style.left=pad()+(S+FD.i)/dur*iw()+'px';fko.style.left=pad()+(E-FD.o)/dur*iw()+'px';
     hs.firstChild.nextSibling.textContent=fmt(S);he.firstChild.nextSibling.textContent=fmt(E);
   }
   requestAnimationFrame(frame);
@@ -241,7 +253,8 @@ function stretch(a,z,r,B=buf){
 }
 function setIc(p){$('#ic').innerHTML='<path d="'+(p?PAUSE:PLAY)+'"/>';$('#play').setAttribute('aria-label',p?'Пауза':'Слушать')}
 function ui(){
-  const on=!!buf;['play','loop','crop','save','fname'].forEach(i=>$('#'+i).disabled=!on);
+  fdClamp();
+  const on=!!buf;['play','loop','crop','rev','save','fname','qual'].forEach(i=>$('#'+i).disabled=!on);
   $('#undo').disabled=!hist.length;$('#empty').style.display=on?'none':'flex';stage.classList.toggle('loaded',on);
   $('#sel').textContent=on?fmt(E-S)+' выбрано':'0:00.00';
   $('#outinfo').textContent=on?'Скачается выделенный кусок, '+fmt((E-S)/fac('speed')):'Скачивать пока нечего: загрузите или запишите звук.';$('#name').textContent=on?name+' · всего '+fmt(buf.duration):'Файл не выбран';
@@ -249,27 +262,28 @@ function ui(){
 async function play(){
   if(!buf||busy)return;actx.resume();stop(false);
   if(pos<S||pos>=E-.02)pos=S;
-  const sp=fac('speed'),pt=fac('pitch'),proc=Math.abs(sp-1)>.001||Math.abs(pt-1)>.001;
+  const sp=fac('speed'),pt=fac('pitch')*efPitch(),use=Math.abs(sp-1)>.001||Math.abs(pt-1)>.001||FD.i>0||FD.o>0;
   let b=buf,o=pos,r=1,lo=S,hi=E;
-  if(proc){
-    const ratio=pt/sp,key=[bid,S,E,sp,pt].join('|');
-    if(!cache||cache.key!==key){
+  if(use){
+    if(!cache||cache.key!==segKey(sp,pt)){
       busy=true;msg('Обрабатываю звук…');await new Promise(q=>setTimeout(q,30));
-      const nb=stretch(Math.floor(S*buf.sampleRate),Math.min(buf.length,Math.ceil(E*buf.sampleRate)),ratio);busy=false;
-      if(!nb){msg('Результат получится длиннее 11 минут, браузеру не хватит памяти. Выделите кусок короче или уменьшите замедление.');return}
-      cache={key,nb,ratio};msg('');
+      const e=ensure(sp,pt);busy=false;
+      if(!e){msg(TOO);return}
+      msg('');
     }
     b=cache.nb;o=(pos-S)*cache.ratio;r=sp;lo=0;hi=b.duration;
   }
-  const me=actx.createBufferSource();me.buffer=b;me.connect(gain);if(proc)me.playbackRate.value=pt;
-  if(loop){me.loop=true;me.loopStart=lo;me.loopEnd=hi;me.start(0,o)}else if(proc)me.start(0,o);else me.start(0,o,E-pos);
+  const me=actx.createBufferSource();me.buffer=b;if(use)me.playbackRate.value=pt;
+  const og=actx.createGain();fxApply(actx,me,true,EFX).connect(og);og.connect(gain);curOg=og;
+  if(loop){me.loop=true;me.loopStart=lo;me.loopEnd=hi;me.start(0,o)}else if(use)me.start(0,o);else me.start(0,o,E-pos);
   me.onended=()=>{if(src===me&&!loop){playing=false;pos=S;setIc(false)}};
   src=me;t0=actx.currentTime;base=pos;rate=r;playing=true;setIc(true);
 }
 function stop(keep=true){
   if(playing&&keep)pos=curPos();
   if(src){src.onended=null;try{src.stop()}catch(e){}src=null}
-  playing=false;setIc(false);
+  if(curOg){try{curOg.disconnect()}catch(e){}curOg=null}
+  fxStop();playing=false;setIc(false);
 }
 async function load(f){
   if(!f)return;msg('');
@@ -334,11 +348,11 @@ function zipOne(fn,d){
   Z.setUint32(0,0x06054b50,true);Z.setUint16(8,1,true);Z.setUint16(10,1,true);Z.setUint32(12,46+nm.length,true);Z.setUint32(16,30+nm.length+n,true);
   return new Blob([L.buffer,nm,d,C.buffer,nm,Z.buffer]);
 }
-function mp3Of(chs,sr){
+function mp3Of(chs,sr,kb=192){
   const nc=Math.min(2,chs.length);let ch=chs.slice(0,nc),rate=sr;
   if(![32000,44100,48000].includes(sr)){rate=44100;ch=ch.map(s=>{const n=Math.floor(s.length*44100/sr),y=new Float32Array(n);for(let i=0;i<n;i++){const p=i*sr/44100,j=p|0,f=p-j;y[i]=s[j]*(1-f)+(j+1<s.length?s[j+1]:s[j])*f}return y})}
   const pcm=ch.map(s=>{const y=new Int16Array(s.length);for(let i=0;i<s.length;i++){const v=Math.max(-1,Math.min(1,s[i]));y[i]=v<0?v*32768:v*32767}return y});
-  const enc=new lamejs.Mp3Encoder(nc,rate,192),parts=[];
+  const enc=new lamejs.Mp3Encoder(nc,rate,kb),parts=[];
   for(let i=0;i<pcm[0].length;i+=1152){const b=nc===2?enc.encodeBuffer(pcm[0].subarray(i,i+1152),pcm[1].subarray(i,i+1152)):enc.encodeBuffer(pcm[0].subarray(i,i+1152));if(b.length)parts.push(b)}
   const e=enc.flush();if(e.length)parts.push(e);
   return new Blob(parts,{type:'audio/mpeg'});
@@ -350,25 +364,35 @@ function wavOf(chs,sr){
   return new Uint8Array(ab);
 }
 function ensure(sp,pt){
-  const key=[bid,S,E,sp,pt].join('|');
-  if(!cache||cache.key!==key){const nb=stretch(Math.floor(S*buf.sampleRate),Math.min(buf.length,Math.ceil(E*buf.sampleRate)),pt/sp);if(!nb)return null;cache={key,nb,ratio:pt/sp}}
+  const key=segKey(sp,pt);
+  if(!cache||cache.key!==key){
+    const ratio=pt/sp,sr=buf.sampleRate,a=Math.floor(S*sr),z=Math.min(buf.length,Math.ceil(E*sr));
+    let nb;
+    if(Math.abs(ratio-1)>.001){nb=stretch(a,z,ratio);if(!nb)return null}
+    else{nb=actx.createBuffer(buf.numberOfChannels,z-a,sr);for(let c=0;c<buf.numberOfChannels;c++)nb.copyToChannel(buf.getChannelData(c).subarray(a,z),c)}
+    applyFade(nb,ratio);cache={key,nb,ratio};
+  }
   return cache;
 }
 $('#save').onclick=async()=>{
   if(!buf||busy)return;busy=true;stop();msg('Готовлю файл…');await new Promise(q=>setTimeout(q,30));
   try{
-    const sr=buf.sampleRate,a=Math.floor(S*sr),z=Math.min(buf.length,Math.ceil(E*sr)),sp=fac('speed'),pt=fac('pitch'),vol=fac('vol'),proc=Math.abs(sp-1)>.001||Math.abs(pt-1)>.001;
+    const sr=buf.sampleRate,a=Math.floor(S*sr),z=Math.min(buf.length,Math.ceil(E*sr)),sp=fac('speed'),pt=fac('pitch')*efPitch(),vol=fac('vol');
+    const use=Math.abs(sp-1)>.001||Math.abs(pt-1)>.001||FD.i>0||FD.o>0;
     let chs=[],R=1;
-    for(let c=0;c<buf.numberOfChannels;c++)chs.push(buf.getChannelData(c).subarray(a,z));
-    if(proc){const e=ensure(sp,pt);if(!e){msg('Результат получится длиннее 11 минут, браузеру не хватит памяти. Выделите кусок короче или уменьшите замедление.');return}chs=[];for(let c=0;c<e.nb.numberOfChannels;c++)chs.push(e.nb.getChannelData(c));R=pt}
-    const len=Math.max(1,Math.floor(chs[0].length/R)),out=chs.map(s=>{const y=new Float32Array(len);for(let i=0;i<len;i++){const p=i*R,j=p|0,f=p-j;y[i]=(s[j]*(1-f)+(j+1<s.length?s[j+1]:s[j])*f)*vol}return y});
-    const base=($('#fname').value.replace(/[^\p{L}\p{N} ._()-]+/gu,'').replace(/^\.+/,'').trim()||'audio').slice(0,80);
-    let ext='mp3',data;
-    try{if(typeof lamejs==='undefined')throw 0;data=mp3Of(out,sr)}catch(e){ext='wav';data=new Blob([wavOf(out,sr)],{type:'audio/wav'})}
-    const fn=base+'.'+ext;
-    const dl=window.claude?await claude.use('downloads').catch(()=>null):null;
-    if(dl){await dl.save({filename:base+'.zip',data:zipOne(fn,new Uint8Array(await data.arrayBuffer()))});msg('Готово. Внутри скачанного .zip лежит файл .'+ext+'.')}
-    else{const u=URL.createObjectURL(data),l=document.createElement('a');l.href=u;l.download=fn;l.click();setTimeout(()=>URL.revokeObjectURL(u),4000);msg('Файл сохранён: '+fn+(ext==='wav'?'. MP3 не получился, поэтому сохранён WAV.':''))}
+    if(use){const e=ensure(sp,pt);if(!e){msg(TOO);return}for(let c=0;c<e.nb.numberOfChannels;c++)chs.push(e.nb.getChannelData(c));R=pt}
+    else for(let c=0;c<buf.numberOfChannels;c++)chs.push(buf.getChannelData(c).subarray(a,z));
+    const len=Math.max(1,Math.floor(chs[0].length/R));
+    let out=chs.map(s=>{const y=new Float32Array(len);for(let i=0;i<len;i++){const p=i*R,j=p|0,f=p-j;y[i]=s[j]*(1-f)+(j+1<s.length?s[j+1]:s[j])*f}return y});
+    if(['echo','robot','radio','hall'].includes(EFX.type)){
+      const nc=out.length,tail=EFX.type==='echo'?Math.ceil(sr*3):EFX.type==='hall'?Math.ceil(sr*(1+2.5*EFX.lvl)):0;
+      const oc=new OfflineAudioContext(nc,len+tail,sr),sb=oc.createBuffer(nc,len,sr);
+      out.forEach((y,c)=>sb.copyToChannel(y,c));
+      const s=oc.createBufferSource();s.buffer=sb;fxApply(oc,s,false,EFX).connect(oc.destination);s.start();
+      const r=await oc.startRendering();out=[];for(let c=0;c<nc;c++)out.push(r.getChannelData(c));
+    }
+    for(const y of out)for(let i=0;i<y.length;i++)y[i]*=vol;
+    await deliver(out,sr,$('#fname').value,msg,$('#qual').value);
   }catch(e){msg(e&&e.code==='declined'?'':'Не удалось сохранить файл.')}finally{busy=false}
 };
 function initAudio(){if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();gain=actx.createGain();gain.connect(actx.destination);setVol()}}
@@ -399,8 +423,8 @@ let rpt=1,rosc=[],rvg=null;
 const FX={type:'none',lvl:.6},EQ={vol:0,bass:0,treb:0,hp:false};
 const pitchOf=()=>FX.type==='tiny'?1.2+.9*FX.lvl:FX.type==='giant'?.85-.4*FX.lvl:1;
 const fxStop=()=>{rosc.forEach(o=>{try{o.stop()}catch(e){}});rosc=[]};
-function fxApply(x,n,live){
-  const t=FX.type,l=FX.lvl,sum=x.createGain();
+function fxApply(x,n,live,F=FX){
+  const t=F.type,l=F.lvl,sum=x.createGain();
   if(t==='echo'){const dl=x.createDelay(1),fb=x.createGain(),wet=x.createGain();dl.delayTime.value=.3;fb.gain.value=.2+.5*l;wet.gain.value=.7;n.connect(sum);n.connect(dl);dl.connect(wet);wet.connect(sum);dl.connect(fb);fb.connect(dl);return sum}
   if(t==='robot'){const m=x.createGain(),o=x.createOscillator();m.gain.value=0;o.frequency.value=40+110*l;o.connect(m.gain);o.start();if(live)rosc.push(o);n.connect(m);return m}
   if(t==='radio'){const hp=x.createBiquadFilter(),lp=x.createBiquadFilter(),sh=x.createWaveShaper(),k=2+8*l,cv=new Float32Array(256);for(let i=0;i<256;i++)cv[i]=Math.tanh(k*(i/127.5-1))/Math.tanh(k);hp.type='highpass';hp.frequency.value=450;lp.type='lowpass';lp.frequency.value=2800;sh.curve=cv;n.connect(hp);hp.connect(lp);lp.connect(sh);return sh}
@@ -487,13 +511,13 @@ async function rToggle(){
     mr.start();rst.classList.add('rec');$('#rrec').classList.add('live');$('#rrec').textContent='Остановить';
   }catch(e){rmsg(micErr(e))}
 }
-async function deliver(out,sr,nm,say){
+async function deliver(out,sr,nm,say,q='192'){
   const base=(nm.replace(/[^\p{L}\p{N} ._()-]+/gu,'').replace(/^\.+/,'').trim()||'audio').slice(0,80);
   let ext='mp3',data;
-  try{if(typeof lamejs==='undefined')throw 0;data=mp3Of(out,sr)}catch(e){ext='wav';data=new Blob([wavOf(out,sr)],{type:'audio/wav'})}
+  try{if(q==='wav'||typeof lamejs==='undefined')throw 0;data=mp3Of(out,sr,+q)}catch(e){ext='wav';data=new Blob([wavOf(out,sr)],{type:'audio/wav'})}
   const fn=base+'.'+ext,dl=window.claude?await claude.use('downloads').catch(()=>null):null;
   if(dl){await dl.save({filename:base+'.zip',data:zipOne(fn,new Uint8Array(await data.arrayBuffer()))});say('Готово. Внутри скачанного .zip лежит файл .'+ext+'.')}
-  else{const u=URL.createObjectURL(data),l=document.createElement('a');l.href=u;l.download=fn;l.click();setTimeout(()=>URL.revokeObjectURL(u),4000);say('Файл сохранён: '+fn+(ext==='wav'?'. MP3 не получился, поэтому сохранён WAV.':''))}
+  else{const u=URL.createObjectURL(data),l=document.createElement('a');l.href=u;l.download=fn;l.click();setTimeout(()=>URL.revokeObjectURL(u),4000);say('Файл сохранён: '+fn+(ext==='wav'&&q!=='wav'?'. MP3 не получился, поэтому сохранён WAV.':''))}
 }
 async function rSave(){
   if(!rb||rbusy)return;rbusy=true;rStop();rmsg('Готовлю файл…');await new Promise(q=>setTimeout(q,30));
@@ -570,6 +594,88 @@ const fxl=rv('fx-lvl',v=>v+'%');fxl.addEventListener('input',()=>{FX.lvl=fxl.val
 document.querySelectorAll('#fx-list .chip').forEach(c=>{c.onclick=()=>{FX.type=c.dataset.fx;document.querySelectorAll('#fx-list .chip').forEach(x=>x.classList.toggle('on',x===c));rApply()}});
 $('#rfext').textContent=typeof lamejs!=='undefined'?'.mp3':'.wav';
 rUi();requestAnimationFrame(rframe);
+let curOg=null,ftm,etm;
+const FD={i:0,o:0},EFX={type:'none',lvl:.6},MQ=[];
+const TOO='Результат получится длиннее 11 минут, браузеру не хватит памяти. Выделите кусок короче или уменьшите замедление.';
+const efPitch=()=>EFX.type==='tiny'?1.2+.9*EFX.lvl:EFX.type==='giant'?.85-.4*EFX.lvl:1;
+const segKey=(sp,pt)=>[bid,S,E,sp,pt,FD.i,FD.o].join('|');
+function fadeG(t,len){let g=1;if(FD.i>0&&t<FD.i)g*=Math.sin(Math.max(0,t)/FD.i*Math.PI/2);if(FD.o>0&&t>len-FD.o)g*=Math.sin(Math.max(0,len-t)/FD.o*Math.PI/2);return g}
+function applyFade(nb,ratio){
+  if(!(FD.i>0||FD.o>0))return;
+  const sr=nb.sampleRate,n=nb.length,L=E-S,a=Math.min(n,Math.ceil(FD.i*sr*ratio)),z=Math.max(0,n-Math.ceil(FD.o*sr*ratio));
+  for(let c=0;c<nb.numberOfChannels;c++){const d=nb.getChannelData(c);
+    for(let i=0;i<a;i++)d[i]*=fadeG(i/(sr*ratio),L);
+    for(let i=Math.max(z,a);i<n;i++)d[i]*=fadeG(i/(sr*ratio),L)}
+}
+function fdClamp(){const L=Math.max(0,E-S);FD.i=Math.min(FD.i,L);FD.o=Math.min(FD.o,Math.max(0,L-FD.i));if(typeof fdi!=='undefined')fdLab()}
+function fdLab(){fdi.value=FD.i;fdo.value=FD.o;$('#v-fd-in').textContent=FD.i.toFixed(1)+' с';$('#v-fd-out').textContent=FD.o.toFixed(1)+' с';$('#t-fd').classList.toggle('on',FD.i>0||FD.o>0)}
+function revBuf(b,s0,e0){
+  const sr=b.sampleRate,a=Math.floor(s0*sr),z=Math.min(b.length,Math.ceil(e0*sr)),nb=actx.createBuffer(b.numberOfChannels,b.length,sr);
+  for(let c=0;c<b.numberOfChannels;c++){const x=b.getChannelData(c),y=nb.getChannelData(c);y.set(x);for(let i=a;i<z;i++)y[i]=x[z-1-(i-a)]}
+  return nb;
+}
+function mergeBufs(items,cf){
+  const sr=items[0].buf.sampleRate,nc=Math.max(...items.map(i=>i.buf.numberOfChannels));let total=0;const st=[];
+  items.forEach((it,k)=>{const n=it.buf.length;it.ov=k?Math.min(Math.floor(cf*sr),Math.floor(items[k-1].buf.length/2),Math.floor(n/2)):0;st.push(total-it.ov);total=total-it.ov+n});
+  const out=actx.createBuffer(nc,total,sr);
+  for(let c=0;c<nc;c++){const d=out.getChannelData(c);
+    items.forEach((it,k)=>{const s=it.buf.getChannelData(Math.min(c,it.buf.numberOfChannels-1)),n=s.length,ov=it.ov,no=items[k+1]?items[k+1].ov:0;
+      for(let i=0;i<n;i++){let g=1;if(i<ov)g=Math.sin(i/ov*Math.PI/2);if(no&&i>=n-no)g*=Math.cos((i-(n-no))/no*Math.PI/2);d[st[k]+i]+=s[i]*g}})}
+  return out;
+}
+const fki=$('#fki'),fko=$('#fko');
+$('#tools').insertAdjacentHTML('beforeend',[['ef','Эффекты'],['fd','Затухание'],['mg','Склейка']].map(([k,l])=>`<button class="tool" id="t-${k}" aria-expanded="false" aria-controls="d-${k}"><span>${l}</span><span class="ch">▾</span></button>`).join(''));
+$('#drawers').insertAdjacentHTML('beforeend',`
+<div class="drawer" id="d-ef"><div><div class="din"><div class="chips" id="ef-list">${[['none','Без эффекта'],['echo','Эхо'],['robot','Робот'],['tiny','Лилипут'],['giant','Великан'],['radio','Рация'],['hall','Зал']].map(([k,l])=>`<button class="chip${k==='none'?' on':''}" data-fx="${k}">${l}</button>`).join('')}</div>${rRow('ef-lvl','Сила эффекта',0,100,1,60)}<small>Эффект слышно при прослушивании, он попадает в сохранённый файл. «Лилипут» и «Великан» меняют высоту голоса, скорость остаётся прежней, они складываются с ползунком «Высота».</small></div></div></div>
+<div class="drawer" id="d-fd"><div><div class="din">${rRow('fd-in','В начале',0,10,.1,0)}${rRow('fd-out','В конце',0,10,.1,0)}<button id="fd-reset">Сбросить</button><small>Затухание можно тянуть и прямо на дорожке: белые кружки сверху у розовых ручек. Оно считается внутри выделенного куска, а линия сверху показывает, как меняется громкость.</small></div></div></div>
+<div class="drawer" id="d-mg"><div><div class="din"><label class="btn" style="position:relative">Добавить файлы<input type="file" id="mfile" accept="audio/*" multiple></label><div class="mq" id="mq"></div>${rRow('mg-cf','Плавный переход',0,3,.1,0)}<button id="mgo" disabled>Склеить в один</button><small>Добавьте два файла или больше, расставьте порядок кнопками ↑ и ↓ и нажмите «Склеить». Результат заменит текущий звук, вернуть прежний можно кнопкой «Отменить». «Плавный переход» перекрывает концы соседних файлов.</small></div></div></div>`);
+['ef','fd','mg'].forEach(k=>{const t=$('#t-'+k),d=$('#d-'+k);t.onclick=()=>{const o=d.classList.toggle('open');t.setAttribute('aria-expanded',o);if(k==='mg'&&o&&!MQ.length&&buf){MQ.push({name:name||'Текущий звук',buf});mqRender()}}});
+const eApply=()=>{clearTimeout(etm);etm=setTimeout(()=>{if(playing){pos=curPos();play()}},200)};
+const efl=rv('ef-lvl',v=>v+'%');efl.addEventListener('input',()=>{EFX.lvl=efl.value/100;eApply()});
+document.querySelectorAll('#ef-list .chip').forEach(c=>{c.onclick=()=>{EFX.type=c.dataset.fx;document.querySelectorAll('#ef-list .chip').forEach(x=>x.classList.toggle('on',x===c));$('#t-ef').classList.toggle('on',EFX.type!=='none');eApply()}});
+const fdi=rv('fd-in',v=>(+v).toFixed(1)+' с'),fdo=rv('fd-out',v=>(+v).toFixed(1)+' с');
+const fdApply=()=>{clearTimeout(ftm);ftm=setTimeout(()=>{if(playing){pos=curPos();play()}},200)};
+fdi.addEventListener('input',()=>{FD.i=Math.min(+fdi.value,Math.max(0,E-S-FD.o));fdLab();fdApply()});
+fdo.addEventListener('input',()=>{FD.o=Math.min(+fdo.value,Math.max(0,E-S-FD.i));fdLab();fdApply()});
+$('#fd-reset').onclick=()=>{FD.i=FD.o=0;fdLab();fdApply()};
+[fki,fko].forEach(k=>{
+  k.addEventListener('pointerdown',e=>{e.stopPropagation();k.setPointerCapture(e.pointerId);k.dragging=true;if(playing)stop()});
+  k.addEventListener('pointermove',e=>{if(!k.dragging||!buf)return;const t=timeAt(e);
+    if(k===fki)FD.i=Math.min(10,Math.max(0,Math.min(t-S,E-S-FD.o)));else FD.o=Math.min(10,Math.max(0,Math.min(E-t,E-S-FD.i)));fdLab()});
+  const up=()=>{k.dragging=false};k.addEventListener('pointerup',up);k.addEventListener('pointercancel',up);
+});
+function mqRender(){
+  const q=$('#mq');q.innerHTML='';
+  MQ.forEach((it,i)=>{
+    const r=document.createElement('div');r.className='mqi';
+    const sp=document.createElement('span');sp.textContent=(i+1)+'. '+it.name+' · '+fmt(it.buf.duration);r.appendChild(sp);
+    [['↑',-1,'Выше'],['↓',1,'Ниже'],['✕',0,'Убрать']].forEach(([l,d,al])=>{
+      const b=document.createElement('button');b.className='mini';b.textContent=l;b.setAttribute('aria-label',al);
+      b.onclick=()=>{if(!d)MQ.splice(i,1);else if(i+d>=0&&i+d<MQ.length){const t=MQ[i];MQ[i]=MQ[i+d];MQ[i+d]=t}mqRender()};r.appendChild(b);
+    });
+    q.appendChild(r);
+  });
+  $('#mgo').disabled=MQ.length<2;
+}
+$('#mfile').onchange=async e=>{
+  const fs=[...e.target.files];e.target.value='';if(!fs.length)return;initAudio();msg('Загружаю файлы…');let bad=false;
+  for(const f of fs){try{MQ.push({name:f.name.replace(/\.[^.]+$/,''),buf:await actx.decodeAudioData(await f.arrayBuffer())})}catch(er){bad=true;msg('Не удалось открыть файл: '+f.name)}}
+  mqRender();if(!bad)msg('');
+};
+const mgcf=rv('mg-cf',v=>(+v).toFixed(1)+' с');
+$('#mgo').onclick=()=>{
+  if(MQ.length<2)return;stop();
+  const out=mergeBufs(MQ.map(x=>({buf:x.buf})),+mgcf.value),n=MQ.length;
+  if(buf)hist.push({buf,S,E});
+  bid++;buf=out;name='Склейка';S=0;E=out.duration;pos=0;born=performance.now();$('#fname').value='склейка';calc();
+  MQ.length=0;MQ.push({name:'Склейка',buf:out});mqRender();ui();msg('Склеено файлов: '+n+'. Если ошиблись, нажмите «Отменить».');
+};
+$('#rev').onclick=()=>{
+  stop();hist.push({buf,S,E});bid++;buf=revBuf(buf,S,E);pos=S;born=performance.now();calc();ui();
+  msg('Выделенный кусок развёрнут. Если ошиблись, нажмите «Отменить».');
+};
+$('#qual').onchange=()=>{$('#fext').textContent=$('#qual').value==='wav'||typeof lamejs==='undefined'?'.wav':'.mp3'};
+fdLab();
 $('#fext').textContent=typeof lamejs!=='undefined'?'.mp3':'.wav';
 const sideTo=o=>{document.body.classList.toggle('side',o);const m=$('#menu');m.setAttribute('aria-expanded',o);m.setAttribute('aria-label',o?'Закрыть меню':'Открыть меню')};
 $('#menu').onclick=()=>sideTo(!document.body.classList.contains('side'));
